@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FFC900" />
+<title>Jotly — Notes &amp; Docs</title>
+<meta name="description" content="Jotly: a fast, full-featured word processor and notes app for your phone and tablet." />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ============ HOME SCREEN ============ -->
+<main id="screen-home" class="screen screen-home">
+  <header class="home-topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">J</span>
+      <span class="brand-name">Jotly</span>
+    </div>
+    <button id="btn-open-trash" class="icon-pill" title="Trash" aria-label="Trash">🗑️</button>
+  </header>
+
+  <div class="search-wrap">
+    <input id="search-input" class="search-input" type="search" placeholder="Search your notes &amp; docs" autocomplete="off" />
+  </div>
+
+  <div class="filter-row" id="filter-row">
+    <button class="filter-chip is-active" data-filter="all">All</button>
+    <button class="filter-chip" data-filter="docs">Documents</button>
+    <button class="filter-chip" data-filter="notes">Quick notes</button>
+    <button class="filter-chip" data-filter="starred">Starred</button>
+  </div>
+
+  <section id="doc-grid" class="doc-grid" aria-live="polite"></section>
+
+  <div id="empty-state" class="empty-state hidden">
+    <div class="empty-emoji">📝</div>
+    <h2>Nothing here yet</h2>
+    <p>Tap the yellow button to start your first document or note.</p>
+  </div>
+
+  <button id="btn-new" class="fab" aria-label="New document">
+    <span class="fab-plus">+</span>
+  </button>
+
+  <div id="new-sheet" class="sheet hidden">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Start something new</h3>
+      <button class="sheet-option" data-new="doc">
+        <span class="sheet-option-icon swatch-yellow">📄</span>
+        <span class="sheet-option-text">
+          <strong>Blank document</strong>
+          <small>Full formatting, page layout, headers</small>
+        </span>
+      </button>
+      <button class="sheet-option" data-new="note">
+        <span class="sheet-option-icon swatch-violet">🗒️</span>
+        <span class="sheet-option-text">
+          <strong>Quick note</strong>
+          <small>Fast, distraction-free writing</small>
+        </span>
+      </button>
+      <button class="sheet-option" data-new="checklist">
+        <span class="sheet-option-icon swatch-mint">✅</span>
+        <span class="sheet-option-text">
+          <strong>Checklist</strong>
+          <small>To-dos with tap-to-check boxes</small>
+        </span>
+      </button>
+    </div>
+  </div>
+</main>
+
+<!-- ============ EDITOR SCREEN ============ -->
+<main id="screen-editor" class="screen screen-editor hidden">
+  <header class="editor-topbar">
+    <button id="btn-back" class="icon-btn" aria-label="Back">←</button>
+    <div class="editor-title-wrap">
+      <input id="doc-title" class="doc-title-input" placeholder="Untitled document" />
+      <span id="save-status" class="save-status">Saved</span>
+    </div>
+    <button id="btn-star" class="icon-btn" aria-label="Star this document">☆</button>
+    <button id="btn-menu" class="icon-btn" aria-label="More options">⋯</button>
+  </header>
+
+  <div class="editor-subbar" id="editor-subbar">
+    <button class="subbar-btn" id="btn-undo" title="Undo">↶</button>
+    <button class="subbar-btn" id="btn-redo" title="Redo">↷</button>
+    <span class="subbar-sep"></span>
+    <select id="font-family-select" class="subbar-select" title="Font">
+      <option value="'Inter', sans-serif">Inter</option>
+      <option value="'Poppins', sans-serif">Poppins</option>
+      <option value="'Lora', serif">Lora (serif)</option>
+      <option value="'Courier New', monospace">Courier</option>
+    </select>
+    <select id="font-size-select" class="subbar-select" title="Font size">
+      <option value="1">10</option>
+      <option value="2">13</option>
+      <option value="3" selected>16</option>
+      <option value="4">18</option>
+      <option value="5">24</option>
+      <option value="6">32</option>
+      <option value="7">48</option>
+    </select>
+    <span class="subbar-sep"></span>
+    <button class="subbar-btn" id="btn-find" title="Find &amp; replace">🔎</button>
+    <button class="subbar-btn" id="btn-wordcount" title="Word count">Aa</button>
+  </div>
+
+  <div class="editor-page-wrap" id="editor-page-wrap">
+    <div class="editor-page" id="editor-page" contenteditable="true" spellcheck="true"></div>
+  </div>
+
+  <!-- Bottom formatting toolbar -->
+  <nav class="toolbar" id="toolbar">
+    <button class="tb-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+    <button class="tb-btn" data-cmd="italic" title="Italic"><i>I</i></button>
+    <button class="tb-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+    <button class="tb-btn" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn" data-open="headings" title="Paragraph style">¶</button>
+    <button class="tb-btn" data-open="align" title="Alignment">☰</button>
+    <button class="tb-btn" data-open="list" title="Lists">•≡</button>
+    <button class="tb-btn" data-open="indent" title="Indent">⇥</button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn" data-open="color" title="Text &amp; highlight color">🎨</button>
+    <button class="tb-btn" data-open="insert" title="Insert">➕</button>
+    <button class="tb-btn" data-open="table" title="Insert table">▦</button>
+  </nav>
+
+  <!-- Bottom sheets for toolbar sub-menus -->
+  <div class="sheet hidden" id="sheet-headings">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Paragraph style</h3>
+      <div class="grid-options">
+        <button class="style-opt" data-block="P">Normal text</button>
+        <button class="style-opt style-h1" data-block="H1">Heading 1</button>
+        <button class="style-opt style-h2" data-block="H2">Heading 2</button>
+        <button class="style-opt style-h3" data-block="H3">Heading 3</button>
+        <button class="style-opt style-quote" data-block="BLOCKQUOTE">Quote</button>
+        <button class="style-opt style-code" data-block="PRE">Code block</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet hidden" id="sheet-align">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Alignment</h3>
+      <div class="row-options">
+        <button class="row-opt" data-cmd="justifyLeft">⯇ Left</button>
+        <button class="row-opt" data-cmd="justifyCenter">☰ Center</button>
+        <button class="row-opt" data-cmd="justifyRight">⯈ Right</button>
+        <button class="row-opt" data-cmd="justifyFull">☰ Justify</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet hidden" id="sheet-list">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Lists</h3>
+      <div class="row-options">
+        <button class="row-opt" data-cmd="insertUnorderedList">• Bullet list</button>
+        <button class="row-opt" data-cmd="insertOrderedList">1. Numbered list</button>
+        <button class="row-opt" data-action="checklist">☑ Checklist</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet hidden" id="sheet-indent">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Indent</h3>
+      <div class="row-options">
+        <button class="row-opt" data-cmd="indent">⇥ Increase indent</button>
+        <button class="row-opt" data-cmd="outdent">⇤ Decrease indent</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet hidden" id="sheet-color">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Text color</h3>
+      <div class="swatch-row" id="text-color-row"></div>
+      <h3 class="sheet-title">Highlight</h3>
+      <div class="swatch-row" id="highlight-color-row"></div>
+    </div>
+  </div>
+
+  <div class="sheet hidden" id="sheet-insert">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Insert</h3>
+      <button class="sheet-option" id="btn-insert-image">
+        <span class="sheet-option-icon swatch-yellow">🖼️</span>
+        <span class="sheet-option-text"><strong>Image</strong><small>From your device</small></span>
+      </button>
+      <button class="sheet-option" id="btn-insert-link">
+        <span class="sheet-option-icon swatch-violet">🔗</span>
+        <span class="sheet-option-text"><strong>Link</strong><small>Add a hyperlink</small></span>
+      </button>
+      <button class="sheet-option" id="btn-insert-hr">
+        <span class="sheet-option-icon swatch-mint">➖</span>
+        <span class="sheet-option-text"><strong>Divider line</strong><small>Horizontal rule</small></span>
+      </button>
+      <button class="sheet-option" id="btn-insert-pagebreak">
+        <span class="sheet-option-icon swatch-pink">📄</span>
+        <span class="sheet-option-text"><strong>Page break</strong><small>Start a new page when printed</small></span>
+      </button>
+      <input type="file" id="image-file-input" accept="image/*" class="hidden" />
+    </div>
+  </div>
+
+  <div class="sheet hidden" id="sheet-table">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Insert table</h3>
+      <div class="table-picker-wrap">
+        <div id="table-picker" class="table-picker"></div>
+        <div id="table-picker-label" class="table-picker-label">3 × 3 table</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet hidden" id="sheet-find">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Find &amp; replace</h3>
+      <input id="find-input" class="text-input" placeholder="Find" />
+      <input id="replace-input" class="text-input" placeholder="Replace with" />
+      <div class="row-options">
+        <button class="row-opt" id="btn-find-next">Find next</button>
+        <button class="row-opt" id="btn-replace-all">Replace all</button>
+      </div>
+      <div id="find-status" class="find-status"></div>
+    </div>
+  </div>
+
+  <div class="sheet hidden" id="sheet-menu">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Document options</h3>
+      <button class="sheet-option" id="btn-export-pdf">
+        <span class="sheet-option-icon swatch-yellow">⬇️</span>
+        <span class="sheet-option-text"><strong>Export as PDF</strong><small>Print or save as PDF</small></span>
+      </button>
+      <button class="sheet-option" id="btn-export-docx">
+        <span class="sheet-option-icon swatch-violet">⬇️</span>
+        <span class="sheet-option-text"><strong>Export as Word (.docx)</strong><small>Opens in MS Word</small></span>
+      </button>
+      <button class="sheet-option" id="btn-export-txt">
+        <span class="sheet-option-icon swatch-mint">⬇️</span>
+        <span class="sheet-option-text"><strong>Export as plain text</strong><small>.txt file</small></span>
+      </button>
+      <button class="sheet-option" id="btn-duplicate-doc">
+        <span class="sheet-option-icon swatch-pink">🧬</span>
+        <span class="sheet-option-text"><strong>Duplicate</strong><small>Make a copy</small></span>
+      </button>
+      <button class="sheet-option" id="btn-delete-doc">
+        <span class="sheet-option-icon swatch-red">🗑️</span>
+        <span class="sheet-option-text"><strong>Move to trash</strong><small>Can be restored later</small></span>
+      </button>
+    </div>
+  </div>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="docx-export.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
