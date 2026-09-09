@@ -34,6 +34,7 @@
     <button class="filter-chip is-active" data-filter="all">All</button>
     <button class="filter-chip" data-filter="docs">Documents</button>
     <button class="filter-chip" data-filter="notes">Quick notes</button>
+    <button class="filter-chip" data-filter="designs">Designs</button>
     <button class="filter-chip" data-filter="starred">Starred</button>
   </div>
 
@@ -74,6 +75,233 @@
           <strong>Checklist</strong>
           <small>To-dos with tap-to-check boxes</small>
         </span>
+      </button>
+      <button class="sheet-option" data-new="design">
+        <span class="sheet-option-icon swatch-pink">🎨</span>
+        <span class="sheet-option-text">
+          <strong>Free-form design</strong>
+          <small>Page sizes, text &amp; shape boxes, gradients — InDesign-style layout</small>
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Page preset sheet: shown before a free-form design is created -->
+  <div id="sheet-preset" class="sheet hidden">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Choose a page size</h3>
+      <div class="grid-options" id="preset-grid"></div>
+
+      <div id="custom-size-row" class="custom-size-row hidden">
+        <div class="field-inline">
+          <label>Width</label>
+          <input type="number" id="custom-width" class="text-input text-input-inline" min="1" value="210" />
+        </div>
+        <div class="field-inline">
+          <label>Height</label>
+          <input type="number" id="custom-height" class="text-input text-input-inline" min="1" value="297" />
+        </div>
+        <div class="field-inline">
+          <label>Unit</label>
+          <select id="custom-unit" class="subbar-select">
+            <option value="mm">mm</option>
+            <option value="in">inch</option>
+            <option value="px">px</option>
+          </select>
+        </div>
+      </div>
+
+      <h3 class="sheet-title">Orientation</h3>
+      <div class="row-options row-options-horizontal" id="orientation-row">
+        <button class="row-opt is-active" data-orientation="portrait">▯ Portrait</button>
+        <button class="row-opt" data-orientation="landscape">▭ Landscape</button>
+      </div>
+
+      <h3 class="sheet-title">Header &amp; footer</h3>
+      <div class="row-options row-options-horizontal" id="headerfooter-row">
+        <button class="row-opt is-active" data-hf="yes">With header/footer</button>
+        <button class="row-opt" data-hf="no">Without</button>
+      </div>
+
+      <button id="btn-create-design" class="cta-btn">Create page</button>
+    </div>
+  </div>
+</main>
+
+<!-- ============ DESIGN SCREEN (free-form layout) ============ -->
+<main id="screen-design" class="screen screen-design hidden">
+  <header class="editor-topbar">
+    <button id="btn-design-back" class="icon-btn" aria-label="Back">←</button>
+    <div class="editor-title-wrap">
+      <input id="design-title" class="doc-title-input" placeholder="Untitled design" />
+      <span id="design-save-status" class="save-status">Saved</span>
+    </div>
+    <button id="btn-design-zoom-out" class="icon-btn" aria-label="Zoom out">−</button>
+    <span id="design-zoom-label" class="zoom-label">100%</span>
+    <button id="btn-design-zoom-in" class="icon-btn" aria-label="Zoom in">+</button>
+    <button id="btn-design-menu" class="icon-btn" aria-label="More options">⋯</button>
+  </header>
+
+  <div class="design-canvas-outer" id="design-canvas-outer">
+    <div class="ruler-corner"></div>
+    <canvas id="ruler-h" class="ruler ruler-h"></canvas>
+    <canvas id="ruler-v" class="ruler ruler-v"></canvas>
+    <div class="design-scroll" id="design-scroll">
+      <div class="design-page-zoom" id="design-page-zoom">
+        <div class="design-page" id="design-page">
+          <div class="design-band design-band-header" id="design-band-header"></div>
+          <div class="design-band design-band-footer" id="design-band-footer"></div>
+          <div class="design-elements" id="design-elements"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="toolbar" id="design-toolbar">
+    <button class="tb-btn" id="btn-add-text" title="Add text box">T</button>
+    <button class="tb-btn" data-open="shape" title="Add shape">▭</button>
+    <button class="tb-btn" id="btn-add-image" title="Add image">🖼️</button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn" id="btn-toggle-rulers" title="Toggle rulers">📏</button>
+    <button class="tb-btn" id="btn-toggle-hf" title="Toggle header/footer">▤</button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn" id="btn-open-props" title="Style &amp; blend">🎛</button>
+    <button class="tb-btn" id="btn-layer-front" title="Bring to front">⬆</button>
+    <button class="tb-btn" id="btn-layer-back" title="Send to back">⬇</button>
+    <button class="tb-btn" id="btn-duplicate-el" title="Duplicate">⧉</button>
+    <button class="tb-btn" id="btn-delete-el" title="Delete">🗑️</button>
+    <input type="file" id="design-image-input" accept="image/*" class="hidden" />
+  </nav>
+
+  <!-- Shape picker -->
+  <div class="sheet hidden" id="sheet-shape">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Add a shape</h3>
+      <div class="row-options">
+        <button class="row-opt" data-shape="rect">▭ Rectangle</button>
+        <button class="row-opt" data-shape="ellipse">◯ Ellipse</button>
+        <button class="row-opt" data-shape="line">➖ Line</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Element properties -->
+  <div class="sheet hidden" id="sheet-props">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel" id="props-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title" id="props-title">Properties</h3>
+
+      <div class="field-row">
+        <input id="props-link" class="text-input" type="url" placeholder="Add a link — https://…" />
+      </div>
+
+      <div id="props-text-group">
+        <div class="swatch-row" id="props-font-color-row"></div>
+        <div class="field-row">
+          <select id="props-font-family" class="subbar-select">
+            <option value="'Inter', sans-serif">Inter</option>
+            <option value="'Poppins', sans-serif">Poppins</option>
+            <option value="'Lora', serif">Lora</option>
+            <option value="'Courier New', monospace">Courier</option>
+          </select>
+          <select id="props-font-size" class="subbar-select">
+            <option value="12">12</option>
+            <option value="16">16</option>
+            <option value="20">20</option>
+            <option value="28">28</option>
+            <option value="36">36</option>
+            <option value="54">54</option>
+            <option value="72">72</option>
+          </select>
+        </div>
+        <div class="row-options row-options-horizontal">
+          <button class="row-opt" data-align="left">⯇</button>
+          <button class="row-opt" data-align="center">☰</button>
+          <button class="row-opt" data-align="right">⯈</button>
+        </div>
+      </div>
+
+      <h3 class="sheet-title">Fill</h3>
+      <div class="row-options row-options-horizontal" id="fill-type-row">
+        <button class="row-opt is-active" data-fill-type="solid">Solid</button>
+        <button class="row-opt" data-fill-type="gradient">Gradient</button>
+        <button class="row-opt" data-fill-type="none">None</button>
+      </div>
+      <div class="swatch-row" id="props-fill-color-row"></div>
+      <div id="gradient-controls" class="hidden">
+        <div class="field-row">
+          <span class="field-label">From</span>
+          <div class="swatch-row swatch-row-compact" id="gradient-from-row"></div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">To</span>
+          <div class="swatch-row swatch-row-compact" id="gradient-to-row"></div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Angle</span>
+          <input type="range" id="gradient-angle" min="0" max="360" value="90" class="range-input" />
+        </div>
+      </div>
+
+      <h3 class="sheet-title">Blend mode</h3>
+      <select id="props-blend-mode" class="subbar-select subbar-select-wide">
+        <option value="normal">Normal</option>
+        <option value="multiply">Multiply</option>
+        <option value="screen">Screen</option>
+        <option value="overlay">Overlay</option>
+        <option value="darken">Darken</option>
+        <option value="lighten">Lighten</option>
+        <option value="color-dodge">Color dodge</option>
+        <option value="color-burn">Color burn</option>
+        <option value="hard-light">Hard light</option>
+        <option value="soft-light">Soft light</option>
+        <option value="difference">Difference</option>
+        <option value="exclusion">Exclusion</option>
+        <option value="hue">Hue</option>
+        <option value="saturation">Saturation</option>
+        <option value="color">Color</option>
+        <option value="luminosity">Luminosity</option>
+      </select>
+
+      <h3 class="sheet-title">Opacity</h3>
+      <input type="range" id="props-opacity" min="0" max="100" value="100" class="range-input" />
+
+      <div id="props-shape-group">
+        <h3 class="sheet-title">Corner radius</h3>
+        <input type="range" id="props-radius" min="0" max="100" value="0" class="range-input" />
+        <h3 class="sheet-title">Border</h3>
+        <div class="swatch-row" id="props-stroke-color-row"></div>
+        <input type="range" id="props-stroke-width" min="0" max="20" value="0" class="range-input" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Design menu: export / page setup / delete -->
+  <div class="sheet hidden" id="sheet-design-menu">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Design options</h3>
+      <button class="sheet-option" id="btn-design-export-pdf">
+        <span class="sheet-option-icon swatch-yellow">⬇️</span>
+        <span class="sheet-option-text"><strong>Export as PDF</strong><small>Print or save as PDF</small></span>
+      </button>
+      <button class="sheet-option" id="btn-design-export-png">
+        <span class="sheet-option-icon swatch-violet">⬇️</span>
+        <span class="sheet-option-text"><strong>Export as image (.png)</strong><small>Flattened snapshot</small></span>
+      </button>
+      <button class="sheet-option" id="btn-design-duplicate">
+        <span class="sheet-option-icon swatch-mint">🧬</span>
+        <span class="sheet-option-text"><strong>Duplicate design</strong><small>Make a copy</small></span>
+      </button>
+      <button class="sheet-option" id="btn-design-delete">
+        <span class="sheet-option-icon swatch-red">🗑️</span>
+        <span class="sheet-option-text"><strong>Move to trash</strong><small>Can be restored later</small></span>
       </button>
     </div>
   </div>
@@ -288,5 +516,6 @@
 
 <script src="docx-export.js"></script>
 <script src="app.js"></script>
+<script src="design.js"></script>
 </body>
 </html>

@@ -93,8 +93,9 @@
   function renderHome() {
     const query = document.getElementById('search-input').value.trim().toLowerCase();
     let list = docs.filter(d => !d.trashed);
-    if (activeFilter === 'docs') list = list.filter(d => d.kind !== 'note');
+    if (activeFilter === 'docs') list = list.filter(d => d.kind !== 'note' && d.kind !== 'design');
     if (activeFilter === 'notes') list = list.filter(d => d.kind === 'note');
+    if (activeFilter === 'designs') list = list.filter(d => d.kind === 'design');
     if (activeFilter === 'starred') list = list.filter(d => d.starred);
     if (query) {
       list = list.filter(d =>
@@ -113,15 +114,16 @@
       card.style.borderTopColor = CARD_COLORS[i % CARD_COLORS.length];
       card.innerHTML = `
         <div class="doc-card-top">
-          <span class="doc-kind">${d.kind === 'note' ? 'Note' : d.kind === 'checklist' ? 'Checklist' : 'Document'}</span>
+          <span class="doc-kind">${d.kind === 'note' ? 'Note' : d.kind === 'checklist' ? 'Checklist' : d.kind === 'design' ? 'Design' : 'Document'}</span>
           <span class="doc-star" data-star="${d.id}">${d.starred ? '★' : '☆'}</span>
         </div>
         <h3>${escapeHtml(d.title || 'Untitled')}</h3>
-        <p class="doc-preview">${escapeHtml(plainTextPreview(d.content)) || 'Empty — tap to start writing'}</p>
-        <div class="doc-meta"><span>${timeAgo(d.updatedAt)}</span><span>${wordCount(d.content)} words</span></div>
+        <p class="doc-preview">${d.kind === 'design' ? (d.page ? `${d.page.presetLabel || 'Custom'} · ${d.page.orientation}` : 'Free-form design') : (escapeHtml(plainTextPreview(d.content)) || 'Empty — tap to start writing')}</p>
+        <div class="doc-meta"><span>${timeAgo(d.updatedAt)}</span><span>${d.kind === 'design' ? (d.elements ? d.elements.length + ' objects' : '0 objects') : wordCount(d.content) + ' words'}</span></div>
       `;
       card.addEventListener('click', (e) => {
         if (e.target.closest('[data-star]')) return;
+        if (d.kind === 'design') { window.JotlyDesign && window.JotlyDesign.open(d.id); return; }
         showEditor(d.id);
       });
       card.querySelector('[data-star]').addEventListener('click', (e) => {
@@ -153,6 +155,11 @@
   newSheet.querySelectorAll('[data-new]').forEach(btn => {
     btn.addEventListener('click', () => {
       const kind = btn.dataset.new;
+      if (kind === 'design') {
+        closeSheet(newSheet);
+        window.JotlyDesign && window.JotlyDesign.openPresetSheet();
+        return;
+      }
       const doc = {
         id: uid(),
         title: '',
@@ -508,6 +515,12 @@
       btn.classList.toggle('is-active', active);
     });
   });
+
+  /* ---------------- expose a small API for design.js ---------------- */
+  window.JotlyApp = {
+    showHome,
+    reloadDocs: function () { docs = loadDocs(); renderHome(); },
+  };
 
   /* ---------------- init ---------------- */
   renderHome();

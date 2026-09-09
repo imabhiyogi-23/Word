@@ -4,17 +4,31 @@ A fast, installable word processor and notes app for phone and tablet, styled af
 
 ## Features
 
+### Word-style documents & notes
 - **Rich text editing** — bold, italic, underline, strikethrough, headings (H1–H3), block quotes, code blocks
 - **Fonts** — 4 font families, 7 sizes, text color + highlight color pickers
 - **Lists** — bullet, numbered, and tap-to-check checklists
 - **Tables** — insert with a visual row × column picker
-- **Images** — insert from your device's camera roll / files (stored inline as data URLs)
-- **Links, dividers, page breaks**
-- **Alignment & indentation**
-- **Undo / redo**, **find & replace**, live word/character count
+- **Images, links, dividers, page breaks**
+- **Alignment & indentation**, **undo/redo**, **find & replace**, live word/character count
+- **Export** — Word (`.docx`, built from scratch — no library), PDF (via print), and plain text (`.txt`)
+
+### Design canvas (InDesign / Affinity-style free-form layout)
+- **Page-size preset picker shown before you start** — A4, A3, A5, US Letter, US Legal, Business card, Instagram Square/Story, or a fully **custom size** in mm / in / px — plus portrait/landscape
+- **Free-form object bars** — add text boxes, shapes (rectangle, ellipse, line), and photos; drag to move, drag the handle to resize, double-tap text to edit
+- **Fill styles** — solid color or 2-color **gradient** with an adjustable angle, or no fill; adjustable corner radius and border
+- **Blend modes** — Multiply, Screen, Overlay, Darken, Lighten, Color Dodge/Burn, Hard/Soft Light, Difference, Exclusion, Hue, Saturation, Color, Luminosity (real CSS blend modes, rendered live)
+- **Opacity control** per object
+- **Links** — attach a URL to any text box, shape, or image
+- **Rulers** along the top and left edges (mm/in/px, matching your chosen unit), toggleable on/off
+- **Headers & footers** — toggle on/off per design, adjustable band height
+- **Zoom** in/out with a fit-to-screen default
+- **Layering** — bring to front / send to back, duplicate, delete
+- **Export** — flattened PNG, or PDF at the exact page size you chose
+
+### Everywhere
 - **Multiple documents** — searchable home screen with document cards, starring, trash/restore
 - **Autosave** — everything saved to on-device storage as you type, no account needed
-- **Export** — Word (`.docx`, built from scratch — no library), PDF (via print), and plain text (`.txt`)
 - **Installable PWA** — "Add to Home Screen" on iOS/Android, works fully offline after first load
 - **Blinkit/Zepto-inspired UI** — punchy yellow + violet palette, rounded cards, bottom-sheet toolbars, floating action button
 
@@ -26,6 +40,7 @@ jotly/
 ├── style.css           Design system & layout
 ├── app.js               App logic: storage, editor commands, UI
 ├── docx-export.js  Dependency-free .docx (OOXML) generator
+├── design.js           Free-form design canvas (pages, objects, rulers, blend modes)
 ├── manifest.json    PWA manifest
 ├── sw.js                  Offline service worker
 └── icons/                App icons
