@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#FFC900" />
 <title>Jotly — Notes &amp; Docs</title>
-<meta name="description" content="Jotly: a fast, full-featured word processor and notes app for your phone and tablet." />
+<meta name="description" content="Jotly: a fast, full-featured word processor for your phone and tablet, with page presets and Word-style drawing objects." />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -34,7 +34,6 @@
     <button class="filter-chip is-active" data-filter="all">All</button>
     <button class="filter-chip" data-filter="docs">Documents</button>
     <button class="filter-chip" data-filter="notes">Quick notes</button>
-    <button class="filter-chip" data-filter="designs">Designs</button>
     <button class="filter-chip" data-filter="starred">Starred</button>
   </div>
 
@@ -59,7 +58,7 @@
         <span class="sheet-option-icon swatch-yellow">📄</span>
         <span class="sheet-option-text">
           <strong>Blank document</strong>
-          <small>Full formatting, page layout, headers</small>
+          <small>Choose a page size, then write &amp; design</small>
         </span>
       </button>
       <button class="sheet-option" data-new="note">
@@ -76,17 +75,10 @@
           <small>To-dos with tap-to-check boxes</small>
         </span>
       </button>
-      <button class="sheet-option" data-new="design">
-        <span class="sheet-option-icon swatch-pink">🎨</span>
-        <span class="sheet-option-text">
-          <strong>Free-form design</strong>
-          <small>Page sizes, text &amp; shape boxes, gradients — InDesign-style layout</small>
-        </span>
-      </button>
     </div>
   </div>
 
-  <!-- Page preset sheet: shown before a free-form design is created -->
+  <!-- Page preset sheet: shown before a blank document is created -->
   <div id="sheet-preset" class="sheet hidden">
     <div class="sheet-backdrop" data-close-sheet></div>
     <div class="sheet-panel">
@@ -95,214 +87,29 @@
       <div class="grid-options" id="preset-grid"></div>
 
       <div id="custom-size-row" class="custom-size-row hidden">
-        <div class="field-inline">
-          <label>Width</label>
-          <input type="number" id="custom-width" class="text-input text-input-inline" min="1" value="210" />
-        </div>
-        <div class="field-inline">
-          <label>Height</label>
-          <input type="number" id="custom-height" class="text-input text-input-inline" min="1" value="297" />
-        </div>
-        <div class="field-inline">
-          <label>Unit</label>
-          <select id="custom-unit" class="subbar-select">
-            <option value="mm">mm</option>
-            <option value="in">inch</option>
-            <option value="px">px</option>
-          </select>
-        </div>
+        <input id="custom-width" class="text-input size-input" type="number" min="1" placeholder="Width" />
+        <span class="size-x">×</span>
+        <input id="custom-height" class="text-input size-input" type="number" min="1" placeholder="Height" />
+        <select id="custom-unit" class="subbar-select">
+          <option value="mm">mm</option>
+          <option value="in">in</option>
+          <option value="px">px</option>
+        </select>
       </div>
 
       <h3 class="sheet-title">Orientation</h3>
-      <div class="row-options row-options-horizontal" id="orientation-row">
-        <button class="row-opt is-active" data-orientation="portrait">▯ Portrait</button>
-        <button class="row-opt" data-orientation="landscape">▭ Landscape</button>
+      <div class="row-options row-options-inline" id="orientation-row">
+        <button class="row-opt is-active" data-orientation="portrait">📄 Portrait</button>
+        <button class="row-opt" data-orientation="landscape">🖼️ Landscape</button>
       </div>
 
       <h3 class="sheet-title">Header &amp; footer</h3>
-      <div class="row-options row-options-horizontal" id="headerfooter-row">
+      <div class="row-options row-options-inline" id="headerfooter-row">
         <button class="row-opt is-active" data-hf="yes">With header/footer</button>
         <button class="row-opt" data-hf="no">Without</button>
       </div>
 
-      <button id="btn-create-design" class="cta-btn">Create page</button>
-    </div>
-  </div>
-</main>
-
-<!-- ============ DESIGN SCREEN (free-form layout) ============ -->
-<main id="screen-design" class="screen screen-design hidden">
-  <header class="editor-topbar">
-    <button id="btn-design-back" class="icon-btn" aria-label="Back">←</button>
-    <div class="editor-title-wrap">
-      <input id="design-title" class="doc-title-input" placeholder="Untitled design" />
-      <span id="design-save-status" class="save-status">Saved</span>
-    </div>
-    <button id="btn-design-zoom-out" class="icon-btn" aria-label="Zoom out">−</button>
-    <span id="design-zoom-label" class="zoom-label">100%</span>
-    <button id="btn-design-zoom-in" class="icon-btn" aria-label="Zoom in">+</button>
-    <button id="btn-design-menu" class="icon-btn" aria-label="More options">⋯</button>
-  </header>
-
-  <div class="design-canvas-outer" id="design-canvas-outer">
-    <div class="ruler-corner"></div>
-    <canvas id="ruler-h" class="ruler ruler-h"></canvas>
-    <canvas id="ruler-v" class="ruler ruler-v"></canvas>
-    <div class="design-scroll" id="design-scroll">
-      <div class="design-page-zoom" id="design-page-zoom">
-        <div class="design-page" id="design-page">
-          <div class="design-band design-band-header" id="design-band-header"></div>
-          <div class="design-band design-band-footer" id="design-band-footer"></div>
-          <div class="design-elements" id="design-elements"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <nav class="toolbar" id="design-toolbar">
-    <button class="tb-btn" id="btn-add-text" title="Add text box">T</button>
-    <button class="tb-btn" data-open="shape" title="Add shape">▭</button>
-    <button class="tb-btn" id="btn-add-image" title="Add image">🖼️</button>
-    <span class="tb-sep"></span>
-    <button class="tb-btn" id="btn-toggle-rulers" title="Toggle rulers">📏</button>
-    <button class="tb-btn" id="btn-toggle-hf" title="Toggle header/footer">▤</button>
-    <span class="tb-sep"></span>
-    <button class="tb-btn" id="btn-open-props" title="Style &amp; blend">🎛</button>
-    <button class="tb-btn" id="btn-layer-front" title="Bring to front">⬆</button>
-    <button class="tb-btn" id="btn-layer-back" title="Send to back">⬇</button>
-    <button class="tb-btn" id="btn-duplicate-el" title="Duplicate">⧉</button>
-    <button class="tb-btn" id="btn-delete-el" title="Delete">🗑️</button>
-    <input type="file" id="design-image-input" accept="image/*" class="hidden" />
-  </nav>
-
-  <!-- Shape picker -->
-  <div class="sheet hidden" id="sheet-shape">
-    <div class="sheet-backdrop" data-close-sheet></div>
-    <div class="sheet-panel">
-      <div class="sheet-handle"></div>
-      <h3 class="sheet-title">Add a shape</h3>
-      <div class="row-options">
-        <button class="row-opt" data-shape="rect">▭ Rectangle</button>
-        <button class="row-opt" data-shape="ellipse">◯ Ellipse</button>
-        <button class="row-opt" data-shape="line">➖ Line</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Element properties -->
-  <div class="sheet hidden" id="sheet-props">
-    <div class="sheet-backdrop" data-close-sheet></div>
-    <div class="sheet-panel" id="props-panel">
-      <div class="sheet-handle"></div>
-      <h3 class="sheet-title" id="props-title">Properties</h3>
-
-      <div class="field-row">
-        <input id="props-link" class="text-input" type="url" placeholder="Add a link — https://…" />
-      </div>
-
-      <div id="props-text-group">
-        <div class="swatch-row" id="props-font-color-row"></div>
-        <div class="field-row">
-          <select id="props-font-family" class="subbar-select">
-            <option value="'Inter', sans-serif">Inter</option>
-            <option value="'Poppins', sans-serif">Poppins</option>
-            <option value="'Lora', serif">Lora</option>
-            <option value="'Courier New', monospace">Courier</option>
-          </select>
-          <select id="props-font-size" class="subbar-select">
-            <option value="12">12</option>
-            <option value="16">16</option>
-            <option value="20">20</option>
-            <option value="28">28</option>
-            <option value="36">36</option>
-            <option value="54">54</option>
-            <option value="72">72</option>
-          </select>
-        </div>
-        <div class="row-options row-options-horizontal">
-          <button class="row-opt" data-align="left">⯇</button>
-          <button class="row-opt" data-align="center">☰</button>
-          <button class="row-opt" data-align="right">⯈</button>
-        </div>
-      </div>
-
-      <h3 class="sheet-title">Fill</h3>
-      <div class="row-options row-options-horizontal" id="fill-type-row">
-        <button class="row-opt is-active" data-fill-type="solid">Solid</button>
-        <button class="row-opt" data-fill-type="gradient">Gradient</button>
-        <button class="row-opt" data-fill-type="none">None</button>
-      </div>
-      <div class="swatch-row" id="props-fill-color-row"></div>
-      <div id="gradient-controls" class="hidden">
-        <div class="field-row">
-          <span class="field-label">From</span>
-          <div class="swatch-row swatch-row-compact" id="gradient-from-row"></div>
-        </div>
-        <div class="field-row">
-          <span class="field-label">To</span>
-          <div class="swatch-row swatch-row-compact" id="gradient-to-row"></div>
-        </div>
-        <div class="field-row">
-          <span class="field-label">Angle</span>
-          <input type="range" id="gradient-angle" min="0" max="360" value="90" class="range-input" />
-        </div>
-      </div>
-
-      <h3 class="sheet-title">Blend mode</h3>
-      <select id="props-blend-mode" class="subbar-select subbar-select-wide">
-        <option value="normal">Normal</option>
-        <option value="multiply">Multiply</option>
-        <option value="screen">Screen</option>
-        <option value="overlay">Overlay</option>
-        <option value="darken">Darken</option>
-        <option value="lighten">Lighten</option>
-        <option value="color-dodge">Color dodge</option>
-        <option value="color-burn">Color burn</option>
-        <option value="hard-light">Hard light</option>
-        <option value="soft-light">Soft light</option>
-        <option value="difference">Difference</option>
-        <option value="exclusion">Exclusion</option>
-        <option value="hue">Hue</option>
-        <option value="saturation">Saturation</option>
-        <option value="color">Color</option>
-        <option value="luminosity">Luminosity</option>
-      </select>
-
-      <h3 class="sheet-title">Opacity</h3>
-      <input type="range" id="props-opacity" min="0" max="100" value="100" class="range-input" />
-
-      <div id="props-shape-group">
-        <h3 class="sheet-title">Corner radius</h3>
-        <input type="range" id="props-radius" min="0" max="100" value="0" class="range-input" />
-        <h3 class="sheet-title">Border</h3>
-        <div class="swatch-row" id="props-stroke-color-row"></div>
-        <input type="range" id="props-stroke-width" min="0" max="20" value="0" class="range-input" />
-      </div>
-    </div>
-  </div>
-
-  <!-- Design menu: export / page setup / delete -->
-  <div class="sheet hidden" id="sheet-design-menu">
-    <div class="sheet-backdrop" data-close-sheet></div>
-    <div class="sheet-panel">
-      <div class="sheet-handle"></div>
-      <h3 class="sheet-title">Design options</h3>
-      <button class="sheet-option" id="btn-design-export-pdf">
-        <span class="sheet-option-icon swatch-yellow">⬇️</span>
-        <span class="sheet-option-text"><strong>Export as PDF</strong><small>Print or save as PDF</small></span>
-      </button>
-      <button class="sheet-option" id="btn-design-export-png">
-        <span class="sheet-option-icon swatch-violet">⬇️</span>
-        <span class="sheet-option-text"><strong>Export as image (.png)</strong><small>Flattened snapshot</small></span>
-      </button>
-      <button class="sheet-option" id="btn-design-duplicate">
-        <span class="sheet-option-icon swatch-mint">🧬</span>
-        <span class="sheet-option-text"><strong>Duplicate design</strong><small>Make a copy</small></span>
-      </button>
-      <button class="sheet-option" id="btn-design-delete">
-        <span class="sheet-option-icon swatch-red">🗑️</span>
-        <span class="sheet-option-text"><strong>Move to trash</strong><small>Can be restored later</small></span>
-      </button>
+      <button id="btn-preset-confirm" class="cta-btn">Create document</button>
     </div>
   </div>
 </main>
@@ -341,14 +148,28 @@
     <span class="subbar-sep"></span>
     <button class="subbar-btn" id="btn-find" title="Find &amp; replace">🔎</button>
     <button class="subbar-btn" id="btn-wordcount" title="Word count">Aa</button>
+    <span class="subbar-sep" id="zoom-sep"></span>
+    <button class="subbar-btn" id="btn-zoom-out" title="Zoom out">−</button>
+    <span class="zoom-label" id="zoom-label">100%</span>
+    <button class="subbar-btn" id="btn-zoom-in" title="Zoom in">+</button>
   </div>
 
   <div class="editor-page-wrap" id="editor-page-wrap">
-    <div class="editor-page" id="editor-page" contenteditable="true" spellcheck="true"></div>
+    <div class="ruler-corner" id="ruler-corner"></div>
+    <canvas class="ruler ruler-h" id="ruler-h"></canvas>
+    <canvas class="ruler ruler-v" id="ruler-v"></canvas>
+    <div class="editor-scroll" id="editor-scroll">
+      <div class="editor-frame" id="editor-frame">
+        <div class="editor-band editor-band-header hidden" id="editor-header-band" contenteditable="true" data-placeholder="Header"></div>
+        <div class="editor-page" id="editor-page" contenteditable="true" spellcheck="true"></div>
+        <div class="editor-band editor-band-footer hidden" id="editor-footer-band" contenteditable="true" data-placeholder="Footer"></div>
+        <div class="objects-layer" id="objects-layer"></div>
+      </div>
+    </div>
   </div>
 
-  <!-- Bottom formatting toolbar -->
-  <nav class="toolbar" id="toolbar">
+  <!-- Bottom toolbar: text-formatting row (default) -->
+  <nav class="toolbar" id="toolbar-text">
     <button class="tb-btn" data-cmd="bold" title="Bold"><b>B</b></button>
     <button class="tb-btn" data-cmd="italic" title="Italic"><i>I</i></button>
     <button class="tb-btn" data-cmd="underline" title="Underline"><u>U</u></button>
@@ -362,6 +183,18 @@
     <button class="tb-btn" data-open="color" title="Text &amp; highlight color">🎨</button>
     <button class="tb-btn" data-open="insert" title="Insert">➕</button>
     <button class="tb-btn" data-open="table" title="Insert table">▦</button>
+  </nav>
+
+  <!-- Bottom toolbar: floating-object row (shown when a shape/text-box/photo is selected) -->
+  <nav class="toolbar hidden" id="toolbar-object">
+    <button class="tb-btn tb-btn-wide" id="btn-obj-style" title="Style">🎨 Style</button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn" id="btn-obj-front" title="Bring to front">⬆</button>
+    <button class="tb-btn" id="btn-obj-back" title="Send to back">⬇</button>
+    <button class="tb-btn" id="btn-obj-dup" title="Duplicate">⧉</button>
+    <button class="tb-btn" id="btn-obj-delete" title="Delete">🗑</button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn tb-btn-wide" id="btn-obj-done" title="Done">✓ Done</button>
   </nav>
 
   <!-- Bottom sheets for toolbar sub-menus -->
@@ -438,7 +271,7 @@
       <h3 class="sheet-title">Insert</h3>
       <button class="sheet-option" id="btn-insert-image">
         <span class="sheet-option-icon swatch-yellow">🖼️</span>
-        <span class="sheet-option-text"><strong>Image</strong><small>From your device</small></span>
+        <span class="sheet-option-text"><strong>Picture (in text)</strong><small>Flows with your paragraph</small></span>
       </button>
       <button class="sheet-option" id="btn-insert-link">
         <span class="sheet-option-icon swatch-violet">🔗</span>
@@ -452,7 +285,34 @@
         <span class="sheet-option-icon swatch-pink">📄</span>
         <span class="sheet-option-text"><strong>Page break</strong><small>Start a new page when printed</small></span>
       </button>
+      <div class="sheet-divider" id="insert-page-only-divider"></div>
+      <button class="sheet-option insert-page-only" id="btn-insert-textbox">
+        <span class="sheet-option-icon swatch-violet">🔤</span>
+        <span class="sheet-option-text"><strong>Text box</strong><small>Free-floating, drag anywhere on the page</small></span>
+      </button>
+      <button class="sheet-option insert-page-only" id="btn-insert-shape">
+        <span class="sheet-option-icon swatch-yellow">◆</span>
+        <span class="sheet-option-text"><strong>Shape</strong><small>Rectangle, ellipse, or line — with fill &amp; gradient</small></span>
+      </button>
+      <button class="sheet-option insert-page-only" id="btn-insert-floating-image">
+        <span class="sheet-option-icon swatch-pink">🖼️</span>
+        <span class="sheet-option-text"><strong>Floating picture</strong><small>Sits on top of the page, drag anywhere</small></span>
+      </button>
       <input type="file" id="image-file-input" accept="image/*" class="hidden" />
+      <input type="file" id="floating-image-file-input" accept="image/*" class="hidden" />
+    </div>
+  </div>
+
+  <div class="sheet hidden" id="sheet-shape">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Add a shape</h3>
+      <div class="row-options">
+        <button class="row-opt" data-shape="rect">▭ Rectangle</button>
+        <button class="row-opt" data-shape="ellipse">⬭ Ellipse</button>
+        <button class="row-opt" data-shape="line">➖ Line</button>
+      </div>
     </div>
   </div>
 
@@ -483,11 +343,122 @@
     </div>
   </div>
 
+  <!-- Floating object style / properties sheet -->
+  <div class="sheet hidden" id="sheet-obj-props">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title" id="props-title">Style</h3>
+
+      <div id="props-text-group">
+        <div class="prop-row">
+          <select id="props-font-family" class="subbar-select">
+            <option value="'Inter', sans-serif">Inter</option>
+            <option value="'Poppins', sans-serif">Poppins</option>
+            <option value="'Lora', serif">Lora</option>
+            <option value="'Courier New', monospace">Courier</option>
+          </select>
+          <select id="props-font-size" class="subbar-select">
+            <option value="12">12</option>
+            <option value="14">14</option>
+            <option value="16">16</option>
+            <option value="20">20</option>
+            <option value="28">28</option>
+            <option value="40">40</option>
+            <option value="64">64</option>
+          </select>
+        </div>
+        <div class="row-options row-options-inline" id="props-text-group-align">
+          <button class="row-opt" data-align="left">⯇</button>
+          <button class="row-opt" data-align="center">☰</button>
+          <button class="row-opt" data-align="right">⯈</button>
+        </div>
+        <p class="prop-label">Text color</p>
+        <div class="swatch-row" id="props-font-color-row"></div>
+      </div>
+
+      <p class="prop-label">Fill</p>
+      <div class="row-options row-options-inline" id="fill-type-row">
+        <button class="row-opt is-active" data-fill-type="solid">Solid</button>
+        <button class="row-opt" data-fill-type="gradient">Gradient</button>
+        <button class="row-opt" data-fill-type="none">None</button>
+      </div>
+      <div class="swatch-row" id="props-fill-color-row"></div>
+      <div id="gradient-controls" class="hidden">
+        <p class="prop-label">From</p>
+        <div class="swatch-row" id="gradient-from-row"></div>
+        <p class="prop-label">To</p>
+        <div class="swatch-row" id="gradient-to-row"></div>
+        <p class="prop-label">Angle</p>
+        <input type="range" id="gradient-angle" min="0" max="360" value="90" class="prop-slider" />
+      </div>
+
+      <div id="props-shape-group">
+        <p class="prop-label">Stroke</p>
+        <div class="swatch-row" id="props-stroke-color-row"></div>
+        <input type="range" id="props-stroke-width" min="0" max="20" value="0" class="prop-slider" />
+        <p class="prop-label">Corner radius</p>
+        <input type="range" id="props-radius" min="0" max="100" value="0" class="prop-slider" />
+      </div>
+
+      <p class="prop-label">Blend mode</p>
+      <select id="props-blend-mode" class="subbar-select prop-full">
+        <option value="normal">Normal</option>
+        <option value="multiply">Multiply</option>
+        <option value="screen">Screen</option>
+        <option value="overlay">Overlay</option>
+        <option value="darken">Darken</option>
+        <option value="lighten">Lighten</option>
+        <option value="color-dodge">Color dodge</option>
+        <option value="color-burn">Color burn</option>
+        <option value="difference">Difference</option>
+        <option value="exclusion">Exclusion</option>
+        <option value="hue">Hue</option>
+        <option value="saturation">Saturation</option>
+        <option value="color">Color</option>
+        <option value="luminosity">Luminosity</option>
+      </select>
+
+      <p class="prop-label">Opacity</p>
+      <input type="range" id="props-opacity" min="0" max="100" value="100" class="prop-slider" />
+
+      <p class="prop-label">Link (optional)</p>
+      <input id="props-link" class="text-input" placeholder="https://…" />
+    </div>
+  </div>
+
+  <!-- Page setup sheet -->
+  <div class="sheet hidden" id="sheet-page-setup">
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <h3 class="sheet-title">Page setup</h3>
+      <p class="prop-label" id="page-setup-size-label">A4 · Portrait</p>
+      <div class="row-options row-options-inline">
+        <button class="row-opt" id="btn-toggle-rulers">Toggle rulers</button>
+      </div>
+      <p class="prop-label">Header</p>
+      <div class="row-options row-options-inline" id="header-toggle-row">
+        <button class="row-opt" data-hf-toggle="header-on">On</button>
+        <button class="row-opt" data-hf-toggle="header-off">Off</button>
+      </div>
+      <p class="prop-label">Footer</p>
+      <div class="row-options row-options-inline" id="footer-toggle-row">
+        <button class="row-opt" data-hf-toggle="footer-on">On</button>
+        <button class="row-opt" data-hf-toggle="footer-off">Off</button>
+      </div>
+    </div>
+  </div>
+
   <div class="sheet hidden" id="sheet-menu">
     <div class="sheet-backdrop" data-close-sheet></div>
     <div class="sheet-panel">
       <div class="sheet-handle"></div>
       <h3 class="sheet-title">Document options</h3>
+      <button class="sheet-option insert-page-only" id="btn-page-setup">
+        <span class="sheet-option-icon swatch-violet">📐</span>
+        <span class="sheet-option-text"><strong>Page setup</strong><small>Rulers, header &amp; footer</small></span>
+      </button>
       <button class="sheet-option" id="btn-export-pdf">
         <span class="sheet-option-icon swatch-yellow">⬇️</span>
         <span class="sheet-option-text"><strong>Export as PDF</strong><small>Print or save as PDF</small></span>
@@ -499,6 +470,10 @@
       <button class="sheet-option" id="btn-export-txt">
         <span class="sheet-option-icon swatch-mint">⬇️</span>
         <span class="sheet-option-text"><strong>Export as plain text</strong><small>.txt file</small></span>
+      </button>
+      <button class="sheet-option insert-page-only" id="btn-export-png">
+        <span class="sheet-option-icon swatch-pink">⬇️</span>
+        <span class="sheet-option-text"><strong>Export as image (.png)</strong><small>Flattened snapshot of the page</small></span>
       </button>
       <button class="sheet-option" id="btn-duplicate-doc">
         <span class="sheet-option-icon swatch-pink">🧬</span>
@@ -516,6 +491,5 @@
 
 <script src="docx-export.js"></script>
 <script src="app.js"></script>
-<script src="design.js"></script>
 </body>
 </html>
