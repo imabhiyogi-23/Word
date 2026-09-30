@@ -19,6 +19,7 @@ Documents work like MS Word — flowing rich text, headings, lists, tables — w
 - In-text pictures, links, divider lines, page breaks, alignment, indentation
 - Undo/redo, find & replace, live word/character count
 - Rulers along the top and left edge of the page (toggle on/off), matching the page's unit
+- **Add page** button on the toolbar — jump straight to a new page whenever you want, mid-sentence or not; the document also grows pages automatically just from writing past the bottom of one, no limit either way
 - Header/footer bands you can turn on or off any time from **Page setup**
 
 ### Floating design objects (the "little bit of InDesign")
@@ -88,5 +89,6 @@ Specific gaps worth knowing about:
 - Gradients are 2-color linear only — no radial or multi-stop gradients
 - `.docx` export carries the flowing text (formatting, headings, lists, tables) but **not** the floating objects layer — Word doesn't have a simple-to-generate-from-scratch equivalent of "floating object over an OOXML paragraph flow," so those objects export cleanly to PDF/PNG instead
 - No macros/VBA, no real-time multi-user collaboration, no mail merge, no advanced citation tooling
+- Pagination for A4/A3/Letter/etc. pages is a **live preview, not real per-page editing**: while writing, dashed lines and "Page N" labels show you where the document will actually split (this is computed from your real content height, and is verified to match the exported PDF's page count) — but you're still editing one continuous flow, not clicking into a separate page 2. True per-page WYSIWYG editing (like desktop Word) would need a full custom layout engine, which is out of scope here.
 
 Everything is stored locally in the browser (`localStorage`) — there's no server and no account, so data doesn't sync between devices unless you add that yourself.

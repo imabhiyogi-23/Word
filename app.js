@@ -112,7 +112,12 @@
     page.setAttribute('data-placeholder', doc.kind === 'note' ? 'Start typing your note…' : 'Start writing…');
     deselectObject();
     renderObjects();
-    requestAnimationFrame(() => fitZoomToScreen(doc));
+    requestAnimationFrame(() => { fitZoomToScreen(doc); renderPageBreaks(); });
+    // Inline images load asynchronously and can change the page's height
+    // after the fact, so re-check page breaks once each one is ready.
+    page.querySelectorAll('img').forEach(img => {
+      if (!img.complete) img.addEventListener('load', () => renderPageBreaks(), { once: true });
+    });
   }
   function getCurrentDoc() { return docs.find(d => d.id === currentDocId); }
 
@@ -325,11 +330,13 @@
     doc.updatedAt = Date.now();
     saveDocs(docs);
     setSaveStatus('Saved');
+    renderPageBreaks();
   }
   window.addEventListener('beforeunload', flushSave);
 
   const page = document.getElementById('editor-page');
   page.addEventListener('input', scheduleSave);
+  page.addEventListener('input', () => renderPageBreaks());
   document.getElementById('editor-header-band').addEventListener('input', scheduleSave);
   document.getElementById('editor-footer-band').addEventListener('input', scheduleSave);
 
@@ -360,11 +367,13 @@
     togglePageOnlyUI(hasPage);
     if (hasPage) {
       editorFrame.style.width = doc.page.widthPx + 'px';
+      editorFrame.style.minHeight = doc.page.heightPx + 'px';
       editorFrame.classList.add('is-page');
       document.getElementById('page-setup-size-label').textContent =
         `${doc.page.presetLabel} · ${doc.page.orientation === 'landscape' ? 'Landscape' : 'Portrait'}`;
     } else {
       editorFrame.style.width = '';
+      editorFrame.style.minHeight = '';
       editorFrame.classList.remove('is-page');
     }
     currentZoom = 1;
@@ -396,6 +405,7 @@
     editorFrame.style.zoom = currentZoom;
     document.getElementById('zoom-label').textContent = Math.round(currentZoom * 100) + '%';
     drawRulers();
+    renderPageBreaks();
   }
   document.getElementById('btn-zoom-in').addEventListener('click', () => setZoom(currentZoom + 0.1));
   document.getElementById('btn-zoom-out').addEventListener('click', () => setZoom(currentZoom - 0.1));
@@ -440,6 +450,97 @@
   }
   editorScroll.addEventListener('scroll', drawRulers);
   window.addEventListener('resize', drawRulers);
+
+  /* Live preview of where the document will actually split into pages
+     once printed/exported — recomputed as content grows. Manual "Add page"
+     breaks force a hard split at their position; natural height overflow
+     still adds further soft breaks within whatever's left of each segment,
+     so a manual break and ordinary overflow can combine correctly. */
+  const pageBreaksLayer = document.getElementById('page-breaks-layer');
+
+  // offsetTop/offsetParent chain gives a zoom-immune "natural" coordinate,
+  // matching scrollHeight and doc.page.heightPx — unlike getBoundingClientRect,
+  // which reports zoomed/visual pixels and would misalign here.
+  function naturalOffsetTop(el, ancestor) {
+    let y = 0, node = el;
+    while (node && node !== ancestor) { y += node.offsetTop || 0; node = node.offsetParent; }
+    return y;
+  }
+
+  function renderPageBreaks() {
+    const doc = getCurrentDoc();
+    pageBreaksLayer.innerHTML = '';
+    if (!doc || !doc.page) return;
+    const pageH = doc.page.heightPx;
+    const totalH = editorFrame.scrollHeight;
+
+    const manualYs = Array.from(page.querySelectorAll('.page-break'))
+      .map(el => naturalOffsetTop(el, editorFrame))
+      .filter(y => y > 0 && y < totalH)
+      .sort((a, b) => a - b);
+
+    const boundaries = [0, ...manualYs, totalH];
+    const breakYs = [];
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const segStart = boundaries[i];
+      const segEnd = boundaries[i + 1];
+      if (i > 0) breakYs.push(segStart); // the manual break itself starts a new page
+      const segHeight = Math.max(0, segEnd - segStart);
+      const naturalPagesInSeg = Math.max(1, Math.ceil(segHeight / pageH));
+      for (let k = 1; k < naturalPagesInSeg; k++) breakYs.push(segStart + k * pageH);
+    }
+
+    const uniqueYs = Array.from(new Set(breakYs.map(v => Math.round(v)))).sort((a, b) => a - b);
+    uniqueYs.forEach((y, idx) => {
+      const line = document.createElement('div');
+      line.className = 'page-break-line';
+      line.style.top = y + 'px';
+      pageBreaksLayer.appendChild(line);
+      const label = document.createElement('div');
+      label.className = 'page-break-label';
+      label.style.top = y + 'px';
+      label.textContent = 'Page ' + (idx + 2);
+      pageBreaksLayer.appendChild(label);
+    });
+  }
+  window.addEventListener('resize', renderPageBreaks);
+
+  /* "Add page" — inserts a manual page break at the cursor (or at the end,
+     if nothing's focused in the page), then moves the cursor onto the new
+     page and scrolls it into view so writing continues there right away. */
+  function addPage() {
+    const doc = getCurrentDoc();
+    if (!doc || !doc.page) return;
+    page.focus();
+    const sel = window.getSelection();
+    const hasCursorInPage = sel.rangeCount > 0 && page.contains(sel.anchorNode);
+    if (!hasCursorInPage) {
+      // No active cursor in the body — append at the very end instead.
+      const range = document.createRange();
+      range.selectNodeContents(page);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    document.execCommand('insertHTML', false,
+      '<div class="page-break" contenteditable="false"></div><p><br></p>');
+    // Land the cursor in the fresh paragraph just after the break.
+    const breaks = page.querySelectorAll('.page-break');
+    const lastBreak = breaks[breaks.length - 1];
+    if (lastBreak && lastBreak.nextElementSibling) {
+      const r = document.createRange();
+      r.selectNodeContents(lastBreak.nextElementSibling);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    scheduleSave();
+    renderPageBreaks();
+    requestAnimationFrame(() => {
+      if (lastBreak) lastBreak.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  }
+  document.getElementById('btn-add-page').addEventListener('click', addPage);
 
   document.getElementById('btn-toggle-rulers').addEventListener('click', () => {
     rulersOn = !rulersOn;
@@ -539,11 +640,6 @@
     closeSheet(document.getElementById('sheet-insert'));
   });
   document.getElementById('btn-insert-hr').addEventListener('click', () => { exec('insertHorizontalRule'); closeSheet(document.getElementById('sheet-insert')); });
-  document.getElementById('btn-insert-pagebreak').addEventListener('click', () => {
-    document.execCommand('insertHTML', false, '<div class="page-break"></div>');
-    scheduleSave();
-    closeSheet(document.getElementById('sheet-insert'));
-  });
 
   /* Table insert */
   const tablePicker = document.getElementById('table-picker');
@@ -870,22 +966,109 @@
   ========================================================= */
   document.getElementById('btn-menu').addEventListener('click', () => openSheet(document.getElementById('sheet-menu')));
 
+  /* ---------------------------------------------------------
+     PDF export.
+     The live editor UI is built from full-screen position:fixed
+     panes so it can be paginated by the browser's print engine —
+     a fixed element is pinned to one viewport and gets clipped to
+     a single page. So instead of printing the live UI, we build a
+     plain, normal-flow copy of just this document into #print-root
+     (outside the app shell), print only that, then clear it. This
+     is also what makes the header/footer repeat on every printed
+     page: they become a real <thead>/<tfoot> in a page-wide table,
+     which browsers repeat automatically whenever the table body
+     spans more than one printed page.
+  --------------------------------------------------------- */
+  function setPrintPageSize(doc) {
+    let styleTag = document.getElementById('print-page-size');
+    if (!styleTag) { styleTag = document.createElement('style'); styleTag.id = 'print-page-size'; document.head.appendChild(styleTag); }
+    if (doc && doc.page) {
+      const wMM = (doc.page.widthPx * MM_PER_PX).toFixed(2);
+      const hMM = (doc.page.heightPx * MM_PER_PX).toFixed(2);
+      styleTag.textContent = `@page { size: ${wMM}mm ${hMM}mm; margin: 0; }`;
+    } else {
+      styleTag.textContent = '@page { margin: 16mm; }';
+    }
+  }
+
+  function buildPrintRoot(doc) {
+    const root = document.getElementById('print-root');
+    root.innerHTML = '';
+    if (!doc.page) {
+      const flow = document.createElement('div');
+      flow.className = 'print-flow';
+      flow.innerHTML = page.innerHTML;
+      root.appendChild(flow);
+      return;
+    }
+
+    const hasHeader = !!(doc.header && doc.header.enabled);
+    const hasFooter = !!(doc.footer && doc.footer.enabled);
+    const table = document.createElement('table');
+    table.className = 'print-page-table';
+
+    if (hasHeader) {
+      const thead = document.createElement('thead');
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.className = 'print-band print-band-header';
+      td.style.height = doc.header.heightPx + 'px';
+      td.innerHTML = document.getElementById('editor-header-band').innerHTML;
+      tr.appendChild(td); thead.appendChild(tr); table.appendChild(thead);
+    }
+
+    const tbody = document.createElement('tbody');
+    const btr = document.createElement('tr');
+    const btd = document.createElement('td');
+    const bodyWrap = document.createElement('div');
+    bodyWrap.className = 'print-body-wrap';
+    const textDiv = document.createElement('div');
+    textDiv.className = 'print-text';
+    textDiv.innerHTML = page.innerHTML;
+    bodyWrap.appendChild(textDiv);
+
+    const objLayer = document.getElementById('objects-layer');
+    if (objLayer.children.length) {
+      const objClone = objLayer.cloneNode(true);
+      objClone.removeAttribute('id');
+      objClone.querySelectorAll('.resize-handle, .link-badge').forEach(h => h.remove());
+      objClone.querySelectorAll('.design-el').forEach(el => { el.classList.remove('is-selected'); el.removeAttribute('contenteditable'); });
+      bodyWrap.appendChild(objClone);
+    }
+    btd.appendChild(bodyWrap);
+    btr.appendChild(btd); tbody.appendChild(btr); table.appendChild(tbody);
+
+    if (hasFooter) {
+      const tfoot = document.createElement('tfoot');
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.className = 'print-band print-band-footer';
+      td.style.height = doc.footer.heightPx + 'px';
+      td.innerHTML = document.getElementById('editor-footer-band').innerHTML;
+      tr.appendChild(td); tfoot.appendChild(tr); table.appendChild(tfoot);
+    }
+
+    root.appendChild(table);
+  }
+
+  function clearPrintRoot() {
+    document.getElementById('print-root').innerHTML = '';
+  }
+
   document.getElementById('btn-export-pdf').addEventListener('click', () => {
     closeSheet(document.getElementById('sheet-menu'));
     flushSave();
     const doc = getCurrentDoc();
-    let styleTag = document.getElementById('print-page-size');
-    if (!styleTag) { styleTag = document.createElement('style'); styleTag.id = 'print-page-size'; document.head.appendChild(styleTag); }
-    if (doc && doc.page) {
-      const wMM = (doc.page.widthPx * MM_PER_PX).toFixed(1);
-      const hMM = (doc.page.heightPx * MM_PER_PX).toFixed(1);
-      styleTag.textContent = `@page { size: ${wMM}mm ${hMM}mm; margin: 0; }`;
-    } else {
-      styleTag.textContent = '';
-    }
-    const prevZoom = currentZoom;
-    if (doc && doc.page) editorFrame.style.zoom = 1;
-    setTimeout(() => { window.print(); if (doc && doc.page) editorFrame.style.zoom = prevZoom; }, 150);
+    if (!doc) return;
+    setPrintPageSize(doc);
+    buildPrintRoot(doc);
+    window.addEventListener('afterprint', clearPrintRoot, { once: true });
+    setTimeout(() => {
+      window.print();
+      // Fallback in case the browser never fires afterprint (some mobile
+      // browsers skip it) — give the print/share sheet time to open first.
+      setTimeout(clearPrintRoot, 4000);
+    }, 50);
   });
   document.getElementById('btn-export-docx').addEventListener('click', () => {
     const doc = getCurrentDoc(); if (!doc) return;

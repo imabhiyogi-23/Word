@@ -451,17 +451,17 @@ input, select, textarea { font-family: inherit; }
   content: attr(data-placeholder);
   color: var(--muted);
 }
-.editor-page h1 { font-family: var(--font-display); font-size: 1.8em; font-weight: 700; margin: 0.6em 0 0.3em; }
-.editor-page h2 { font-family: var(--font-display); font-size: 1.4em; font-weight: 700; margin: 0.6em 0 0.3em; }
-.editor-page h3 { font-family: var(--font-display); font-size: 1.15em; font-weight: 700; margin: 0.6em 0 0.3em; }
-.editor-page blockquote {
+.editor-page h1, .print-text h1, .print-flow h1 { font-family: var(--font-display); font-size: 1.8em; font-weight: 700; margin: 0.6em 0 0.3em; }
+.editor-page h2, .print-text h2, .print-flow h2 { font-family: var(--font-display); font-size: 1.4em; font-weight: 700; margin: 0.6em 0 0.3em; }
+.editor-page h3, .print-text h3, .print-flow h3 { font-family: var(--font-display); font-size: 1.15em; font-weight: 700; margin: 0.6em 0 0.3em; }
+.editor-page blockquote, .print-text blockquote, .print-flow blockquote {
   border-left: 4px solid var(--yellow);
   margin: 0.6em 0;
   padding: 4px 0 4px 14px;
   color: var(--muted);
   font-style: italic;
 }
-.editor-page pre {
+.editor-page pre, .print-text pre, .print-flow pre {
   background: var(--bg);
   border-radius: var(--radius-sm);
   padding: 12px;
@@ -469,17 +469,29 @@ input, select, textarea { font-family: inherit; }
   font-size: 0.9em;
   overflow-x: auto;
 }
-.editor-page ul, .editor-page ol { padding-left: 1.4em; }
-.editor-page img { max-width: 100%; border-radius: 8px; }
-.editor-page table { border-collapse: collapse; width: 100%; margin: 0.6em 0; }
-.editor-page td { border: 1px solid var(--line); padding: 8px; min-width: 40px; }
-.editor-page hr { border: none; border-top: 2px dashed var(--line); margin: 1.2em 0; }
-.editor-page .page-break { border-top: 2px dashed var(--violet); margin: 1.4em 0; position: relative; }
+.editor-page ul, .editor-page ol, .print-text ul, .print-text ol, .print-flow ul, .print-flow ol { padding-left: 1.4em; }
+.editor-page img, .print-text img, .print-flow img { max-width: 100%; border-radius: 8px; }
+.editor-page table, .print-text table, .print-flow table { border-collapse: collapse; width: 100%; margin: 0.6em 0; }
+.editor-page td, .print-text td, .print-flow td { border: 1px solid var(--line); padding: 8px; min-width: 40px; }
+.editor-page hr, .print-text hr, .print-flow hr { border: none; border-top: 2px dashed var(--line); margin: 1.2em 0; }
+.editor-page .page-break {
+  border-top: 2px dashed var(--violet);
+  margin: 2.4em -22px 2em;
+  padding-top: 14px;
+  position: relative;
+  user-select: none;
+}
+.editor-page .page-break::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: -14px; height: 14px;
+  background: linear-gradient(to bottom, rgba(20,17,13,0.06), transparent);
+}
 .editor-page .page-break::after {
-  content: 'Page break';
-  position: absolute; top: -9px; left: 12px;
-  background: var(--surface); color: var(--violet);
-  font-size: 10.5px; font-weight: 700; padding: 0 6px;
+  content: '◆ New page ◆';
+  position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+  background: var(--violet); color: #fff;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em;
+  padding: 3px 12px; border-radius: 999px; white-space: nowrap;
 }
 .checklist-item { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; list-style: none; }
 .checklist-item input { margin-top: 5px; width: 17px; height: 17px; accent-color: var(--mint); }
@@ -628,6 +640,32 @@ ul.checklist { padding-left: 0; }
 .editor-band:empty::before { content: attr(data-placeholder); color: var(--muted); opacity: 0.7; }
 
 .objects-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+/* Visual page-break preview: shows where the printed/exported document will
+   actually split into separate physical pages, computed live as you type. */
+.page-breaks-layer { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.page-break-line {
+  position: absolute; left: -22px; right: -22px; height: 0;
+  border-top: 2px dashed rgba(91,33,182,0.55);
+}
+.page-break-line::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: -10px; height: 10px;
+  background: linear-gradient(to bottom, rgba(20,17,13,0.08), transparent);
+}
+.page-break-line::after {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 10px;
+  background: linear-gradient(to top, rgba(20,17,13,0.08), transparent);
+}
+.page-break-label {
+  position: absolute; left: 50%; top: 0;
+  transform: translate(-50%, -50%);
+  background: var(--violet); color: #fff;
+  font-size: 10.5px; font-weight: 700;
+  padding: 3px 10px; border-radius: 999px;
+  white-space: nowrap; font-family: var(--font-body);
+}
 .design-el {
   position: absolute;
   pointer-events: auto;
@@ -662,14 +700,45 @@ ul.checklist { padding-left: 0; }
   text-decoration: none;
 }
 
+/* ---------------------------------------------------------
+   PRINT / PDF EXPORT
+   The live app UI uses position:fixed full-screen panes, which
+   browsers cannot paginate (a fixed element is pinned to one
+   viewport and gets clipped to a single printed page). So for
+   printing we don't try to print the live UI at all: app.js
+   builds a plain, normal-flow copy of the document into
+   #print-root right before printing, and this block hides
+   everything else and prints only that copy. Normal-flow
+   content of any height is what lets the browser correctly
+   split a long document across multiple physical pages.
+--------------------------------------------------------- */
+#print-root { display: none; }
 @media print {
-  .link-badge, .resize-handle { display: none !important; }
-  .home-topbar, .search-wrap, .filter-row, .fab, .editor-topbar,
-  .editor-subbar, .toolbar, .sheet, .toast, #screen-home { display: none !important; }
-  .ruler, .ruler-corner { display: none !important; }
-  #editor-page-wrap { grid-template-columns: 0 1fr !important; grid-template-rows: 0 1fr !important; overflow: visible !important; background: #fff !important; }
-  .editor-scroll { grid-column: 1 / -1 !important; grid-row: 1 / -1 !important; overflow: visible !important; padding: 0 !important; }
-  .editor-frame { box-shadow: none !important; border-radius: 0 !important; max-width: 100% !important; }
-  .page-break { break-after: page; border: none !important; }
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  .screen, .sheet, .toast { display: none !important; }
+  #print-root { display: block !important; }
+
+  #print-root .print-flow {
+    font-family: var(--font-body); font-size: 16px; line-height: 1.65; color: var(--ink);
+  }
+  #print-root .print-text {
+    font-family: var(--font-body); font-size: 16px; line-height: 1.65; color: var(--ink);
+  }
+  #print-root table.print-page-table {
+    width: 100%; border-collapse: collapse; table-layout: fixed;
+  }
+  #print-root table.print-page-table > thead { display: table-header-group; }
+  #print-root table.print-page-table > tfoot { display: table-footer-group; }
+  #print-root table.print-page-table > tbody { display: table-row-group; }
+  #print-root table.print-page-table td { padding: 0; }
+  #print-root tr, #print-root td { break-inside: auto; page-break-inside: auto; }
+  #print-root .print-band { box-sizing: border-box; overflow: hidden; }
+  #print-root .print-band-header { padding: 8px 22px; border-bottom: 1px solid #ddd; }
+  #print-root .print-band-footer { padding: 8px 22px; border-top: 1px solid #ddd; }
+  #print-root .print-body-wrap { position: relative; box-sizing: border-box; padding: 20px 22px; }
+  #print-root .print-body-wrap .objects-layer { position: absolute; z-index: 5; pointer-events: none; }
+  #print-root .resize-handle, #print-root .link-badge { display: none !important; }
+  #print-root .design-el[contenteditable] { outline: none !important; }
+  .page-break { break-after: page; }
   .page-break::after { display: none; }
 }

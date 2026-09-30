@@ -164,6 +164,7 @@
         <div class="editor-page" id="editor-page" contenteditable="true" spellcheck="true"></div>
         <div class="editor-band editor-band-footer hidden" id="editor-footer-band" contenteditable="true" data-placeholder="Footer"></div>
         <div class="objects-layer" id="objects-layer"></div>
+        <div class="page-breaks-layer" id="page-breaks-layer"></div>
       </div>
     </div>
   </div>
@@ -183,6 +184,8 @@
     <button class="tb-btn" data-open="color" title="Text &amp; highlight color">🎨</button>
     <button class="tb-btn" data-open="insert" title="Insert">➕</button>
     <button class="tb-btn" data-open="table" title="Insert table">▦</button>
+    <span class="tb-sep insert-page-only" id="add-page-sep"></span>
+    <button class="tb-btn tb-btn-wide insert-page-only" id="btn-add-page" title="Add a new page">📄+ Add page</button>
   </nav>
 
   <!-- Bottom toolbar: floating-object row (shown when a shape/text-box/photo is selected) -->
@@ -280,10 +283,6 @@
       <button class="sheet-option" id="btn-insert-hr">
         <span class="sheet-option-icon swatch-mint">➖</span>
         <span class="sheet-option-text"><strong>Divider line</strong><small>Horizontal rule</small></span>
-      </button>
-      <button class="sheet-option" id="btn-insert-pagebreak">
-        <span class="sheet-option-icon swatch-pink">📄</span>
-        <span class="sheet-option-text"><strong>Page break</strong><small>Start a new page when printed</small></span>
       </button>
       <div class="sheet-divider" id="insert-page-only-divider"></div>
       <button class="sheet-option insert-page-only" id="btn-insert-textbox">
@@ -488,6 +487,12 @@
 </main>
 
 <div id="toast" class="toast hidden"></div>
+
+<!-- Populated just-in-time for printing/PDF export, then cleared. Kept outside
+     the app's fixed-position screens so it prints as normal flowing content
+     that the browser can correctly split across multiple physical pages,
+     with header/footer repeating on every page via <thead>/<tfoot>. -->
+<div id="print-root"></div>
 
 <script src="docx-export.js"></script>
 <script src="app.js"></script>
