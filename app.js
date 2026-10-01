@@ -91,16 +91,19 @@
 
   function showHome() {
     screenEditor.classList.add('hidden');
+    screenTrash.classList.add('hidden');
     screenHome.classList.remove('hidden');
     currentDocId = null;
     deselectObject();
     renderHome();
+    updateTrashBadge();
   }
   function openDoc(id) {
     currentDocId = id;
     const doc = docs.find(d => d.id === id);
     if (!doc) return showHome();
     screenHome.classList.add('hidden');
+    screenTrash.classList.add('hidden');
     screenEditor.classList.remove('hidden');
     document.getElementById('doc-title').value = doc.title || '';
     updateStarButton(doc);
@@ -340,6 +343,57 @@
   document.getElementById('editor-header-band').addEventListener('input', scheduleSave);
   document.getElementById('editor-footer-band').addEventListener('input', scheduleSave);
 
+  /* ---------------------------------------------------------
+     Cursor-position memory.
+     Tapping a toolbar button or opening a bottom sheet moves focus
+     away from the contenteditable body, which clears the browser's
+     selection. Without this, the next execCommand/insertHTML call
+     has nowhere to insert *at* and silently falls back to the very
+     start of the document — that's the "everything I insert jumps
+     to the top" bug. We continuously remember the last real cursor
+     position inside the body while it's focused, then explicitly
+     restore it immediately before every insertion.
+  --------------------------------------------------------- */
+  let savedRange = null;
+  let inTableCell = null; // the <td>/<th> the cursor is currently inside, or null
+  function getClosestCell(node) {
+    let el = node.nodeType === 3 ? node.parentElement : node;
+    while (el && el !== page) {
+      if (el.tagName === 'TD' || el.tagName === 'TH') return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+  function rememberSelection() {
+    const sel = window.getSelection();
+    if (sel.rangeCount && page.contains(sel.anchorNode)) {
+      savedRange = sel.getRangeAt(0).cloneRange();
+      inTableCell = getClosestCell(sel.anchorNode);
+      updateToolbarMode();
+    }
+    // If the selection moved outside the body (e.g. focus went to a
+    // toolbar/sheet button), deliberately leave savedRange/inTableCell
+    // as they were — that's what lets a toolbar action act on the spot
+    // the user was last actually editing, instead of losing it.
+  }
+  page.addEventListener('keyup', rememberSelection);
+  page.addEventListener('mouseup', rememberSelection);
+  page.addEventListener('touchend', rememberSelection);
+  document.addEventListener('selectionchange', rememberSelection);
+  function restoreSelection() {
+    page.focus();
+    const sel = window.getSelection();
+    if (savedRange) {
+      try { sel.removeAllRanges(); sel.addRange(savedRange); return; }
+      catch (e) { /* range no longer valid (node removed) — fall through */ }
+    }
+    const range = document.createRange();
+    range.selectNodeContents(page);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
   /* =========================================================
      Page / header / footer / rulers / zoom setup
   ========================================================= */
@@ -511,17 +565,8 @@
   function addPage() {
     const doc = getCurrentDoc();
     if (!doc || !doc.page) return;
-    page.focus();
+    restoreSelection(); // uses the last real cursor spot, or falls back to the end
     const sel = window.getSelection();
-    const hasCursorInPage = sel.rangeCount > 0 && page.contains(sel.anchorNode);
-    if (!hasCursorInPage) {
-      // No active cursor in the body — append at the very end instead.
-      const range = document.createRange();
-      range.selectNodeContents(page);
-      range.collapse(false);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
     document.execCommand('insertHTML', false,
       '<div class="page-break" contenteditable="false"></div><p><br></p>');
     // Land the cursor in the fresh paragraph just after the break.
@@ -533,6 +578,7 @@
       r.collapse(true);
       sel.removeAllRanges();
       sel.addRange(r);
+      savedRange = r.cloneRange();
     }
     scheduleSave();
     renderPageBreaks();
@@ -570,13 +616,45 @@
   /* =========================================================
      Text formatting toolbar
   ========================================================= */
-  function exec(cmd, val) { page.focus(); document.execCommand(cmd, false, val || null); scheduleSave(); }
+  function exec(cmd, val) { restoreSelection(); document.execCommand(cmd, false, val || null); rememberSelection(); scheduleSave(); }
+
+  // execCommand('formatBlock') always *applies* the requested block type —
+  // unlike bold/italic, it never turns itself back off when the block
+  // already matches, which is the "heading/quote won't turn off" bug.
+  // We detect the current block ourselves and switch to a plain paragraph
+  // instead whenever the requested style is already active.
+  function getCurrentBlockTag() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    let node = sel.anchorNode;
+    if (!node) return null;
+    if (node.nodeType === 3) node = node.parentElement;
+    while (node && node !== page) {
+      if (node.tagName && ['P', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'PRE', 'DIV'].includes(node.tagName)) {
+        return node.tagName;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
 
   document.getElementById('toolbar-text').addEventListener('click', (e) => {
     const cmdBtn = e.target.closest('[data-cmd]');
     if (cmdBtn) { exec(cmdBtn.dataset.cmd); return; }
     const openBtn = e.target.closest('[data-open]');
-    if (openBtn) { const sheet = document.getElementById('sheet-' + openBtn.dataset.open); if (sheet) openSheet(sheet); }
+    if (openBtn) {
+      const sheet = document.getElementById('sheet-' + openBtn.dataset.open);
+      if (sheet) {
+        if (openBtn.dataset.open === 'headings') {
+          restoreSelection();
+          const current = getCurrentBlockTag() || 'P';
+          sheet.querySelectorAll('.style-opt').forEach(opt => {
+            opt.classList.toggle('is-active', opt.dataset.block === current);
+          });
+        }
+        openSheet(sheet);
+      }
+    }
   });
   document.getElementById('sheet-align').addEventListener('click', (e) => {
     const b = e.target.closest('[data-cmd]'); if (b) { exec(b.dataset.cmd); closeSheet(document.getElementById('sheet-align')); }
@@ -591,11 +669,20 @@
     closeSheet(document.getElementById('sheet-list'));
   });
   document.getElementById('sheet-headings').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-block]'); if (b) { exec('formatBlock', '<' + b.dataset.block + '>'); closeSheet(document.getElementById('sheet-headings')); }
+    const b = e.target.closest('[data-block]'); if (!b) return;
+    restoreSelection();
+    const current = getCurrentBlockTag();
+    const requested = b.dataset.block;
+    const targetTag = (current === requested) ? 'P' : requested;
+    document.execCommand('formatBlock', false, '<' + targetTag + '>');
+    rememberSelection();
+    scheduleSave();
+    closeSheet(document.getElementById('sheet-headings'));
   });
   function insertChecklistItem() {
-    page.focus();
+    restoreSelection();
     document.execCommand('insertHTML', false, '<ul class="checklist"><li class="checklist-item"><input type="checkbox"><span contenteditable="true">To-do</span></li></ul>');
+    rememberSelection();
     scheduleSave();
   }
   page.addEventListener('click', (e) => {
@@ -641,10 +728,13 @@
   });
   document.getElementById('btn-insert-hr').addEventListener('click', () => { exec('insertHorizontalRule'); closeSheet(document.getElementById('sheet-insert')); });
 
-  /* Table insert */
+  /* ---------------------------------------------------------
+     Table insert — a quick visual picker for common sizes, plus
+     explicit row/column number inputs for anything larger.
+  --------------------------------------------------------- */
   const tablePicker = document.getElementById('table-picker');
   const tablePickerLabel = document.getElementById('table-picker-label');
-  const TABLE_COLS = 8, TABLE_ROWS = 6;
+  const TABLE_COLS = 10, TABLE_ROWS = 8;
   (function buildTablePicker() {
     for (let r = 0; r < TABLE_ROWS; r++) for (let c = 0; c < TABLE_COLS; c++) {
       const cell = document.createElement('div');
@@ -657,6 +747,8 @@
     tablePicker.querySelectorAll('.table-picker-cell').forEach(cell => {
       cell.classList.toggle('is-active', +cell.dataset.r <= r && +cell.dataset.c <= c);
     });
+    document.getElementById('table-custom-rows').value = r;
+    document.getElementById('table-custom-cols').value = c;
   }
   tablePicker.addEventListener('pointerover', (e) => { const cell = e.target.closest('.table-picker-cell'); if (cell) highlightTablePicker(+cell.dataset.r, +cell.dataset.c); });
   tablePicker.addEventListener('click', (e) => {
@@ -665,14 +757,158 @@
     closeSheet(document.getElementById('sheet-table'));
   });
   highlightTablePicker(3, 3);
+  document.getElementById('btn-table-custom-insert').addEventListener('click', () => {
+    const rows = Math.max(1, Math.min(60, +document.getElementById('table-custom-rows').value || 1));
+    const cols = Math.max(1, Math.min(30, +document.getElementById('table-custom-cols').value || 1));
+    insertTable(rows, cols);
+    closeSheet(document.getElementById('sheet-table'));
+  });
   function insertTable(rows, cols) {
     let html = '<table>';
     for (let r = 0; r < rows; r++) { html += '<tr>'; for (let c = 0; c < cols; c++) html += '<td>&nbsp;</td>'; html += '</tr>'; }
     html += '</table><p><br></p>';
-    page.focus();
+    restoreSelection();
     document.execCommand('insertHTML', false, html);
+    rememberSelection();
     scheduleSave();
+    renderPageBreaks();
   }
+
+  /* ---------------------------------------------------------
+     Table editing — add/move/delete rows and columns from
+     wherever the cursor currently is in the table.
+  --------------------------------------------------------- */
+  function currentTableParts() {
+    if (!inTableCell || !page.contains(inTableCell)) return null;
+    const td = inTableCell;
+    const tr = td.closest('tr');
+    const table = td.closest('table');
+    if (!tr || !table) return null;
+    const cellIndex = Array.from(tr.children).indexOf(td);
+    const rowIndex = Array.from(table.querySelectorAll('tr')).indexOf(tr);
+    return { td, tr, table, cellIndex, rowIndex };
+  }
+  function focusCell(td) {
+    if (!td) return;
+    const r = document.createRange();
+    r.selectNodeContents(td);
+    r.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    inTableCell = td;
+    savedRange = r.cloneRange();
+  }
+  function afterTableEdit() {
+    scheduleSave();
+    renderPageBreaks();
+    updateToolbarMode();
+  }
+  function tableColCount(table) {
+    const firstRow = table.querySelector('tr');
+    return firstRow ? firstRow.children.length : 0;
+  }
+  function deleteWholeTable(table) {
+    if (!confirm('Delete this whole table?')) return;
+    table.remove();
+    inTableCell = null;
+    updateToolbarMode();
+    scheduleSave();
+    renderPageBreaks();
+  }
+  document.getElementById('tbl-row-above').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    const cols = tableColCount(p.table);
+    const newRow = document.createElement('tr');
+    for (let i = 0; i < cols; i++) newRow.appendChild(document.createElement('td')).innerHTML = '&nbsp;';
+    p.tr.parentNode.insertBefore(newRow, p.tr);
+    afterTableEdit();
+  });
+  document.getElementById('tbl-row-below').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    const cols = tableColCount(p.table);
+    const newRow = document.createElement('tr');
+    for (let i = 0; i < cols; i++) newRow.appendChild(document.createElement('td')).innerHTML = '&nbsp;';
+    p.tr.parentNode.insertBefore(newRow, p.tr.nextSibling);
+    afterTableEdit();
+  });
+  document.getElementById('tbl-row-up').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    const prev = p.tr.previousElementSibling;
+    if (prev) { p.tr.parentNode.insertBefore(p.tr, prev); afterTableEdit(); focusCell(p.td); }
+  });
+  document.getElementById('tbl-row-down').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    const next = p.tr.nextElementSibling;
+    if (next) { p.tr.parentNode.insertBefore(next, p.tr); afterTableEdit(); focusCell(p.td); }
+  });
+  document.getElementById('tbl-row-del').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    const rows = p.table.querySelectorAll('tr');
+    if (rows.length <= 1) { deleteWholeTable(p.table); return; }
+    const fallback = p.tr.nextElementSibling || p.tr.previousElementSibling;
+    const fallbackCell = fallback ? (fallback.children[p.cellIndex] || fallback.children[0]) : null;
+    p.tr.remove();
+    afterTableEdit();
+    if (fallbackCell) focusCell(fallbackCell); else { inTableCell = null; updateToolbarMode(); }
+  });
+  document.getElementById('tbl-col-left').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    p.table.querySelectorAll('tr').forEach(tr => {
+      const cell = document.createElement('td'); cell.innerHTML = '&nbsp;';
+      tr.insertBefore(cell, tr.children[p.cellIndex] || null);
+    });
+    afterTableEdit();
+  });
+  document.getElementById('tbl-col-right').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    p.table.querySelectorAll('tr').forEach(tr => {
+      const cell = document.createElement('td'); cell.innerHTML = '&nbsp;';
+      tr.insertBefore(cell, tr.children[p.cellIndex + 1] || null);
+    });
+    afterTableEdit();
+  });
+  document.getElementById('tbl-col-move-left').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p || p.cellIndex === 0) return;
+    p.table.querySelectorAll('tr').forEach(tr => {
+      const cell = tr.children[p.cellIndex];
+      const target = tr.children[p.cellIndex - 1];
+      if (cell && target) tr.insertBefore(cell, target);
+    });
+    afterTableEdit();
+    focusCell(p.td);
+  });
+  document.getElementById('tbl-col-move-right').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    const cols = tableColCount(p.table);
+    if (p.cellIndex >= cols - 1) return;
+    p.table.querySelectorAll('tr').forEach(tr => {
+      const cell = tr.children[p.cellIndex];
+      const target = tr.children[p.cellIndex + 1];
+      if (cell && target) tr.insertBefore(target, cell);
+    });
+    afterTableEdit();
+    focusCell(p.td);
+  });
+  document.getElementById('tbl-col-del').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    const cols = tableColCount(p.table);
+    if (cols <= 1) { deleteWholeTable(p.table); return; }
+    let fallbackCell = null;
+    p.table.querySelectorAll('tr').forEach(tr => {
+      const cell = tr.children[p.cellIndex];
+      if (cell) {
+        if (tr === p.tr) fallbackCell = cell.nextElementSibling || cell.previousElementSibling;
+        cell.remove();
+      }
+    });
+    afterTableEdit();
+    if (fallbackCell) focusCell(fallbackCell); else { inTableCell = null; updateToolbarMode(); }
+  });
+  document.getElementById('tbl-delete').addEventListener('click', () => {
+    const p = currentTableParts(); if (!p) return;
+    deleteWholeTable(p.table);
+  });
 
   /* Find & replace */
   document.getElementById('btn-find-next').addEventListener('click', () => {
@@ -708,7 +944,27 @@
   const objectsLayer = document.getElementById('objects-layer');
   const toolbarText = document.getElementById('toolbar-text');
   const toolbarObject = document.getElementById('toolbar-object');
+  const toolbarTable = document.getElementById('toolbar-table');
   let selectedElId = null;
+
+  /* Which bottom toolbar is showing: object tools win (an explicit
+     selection), then table tools (cursor inside a table), else text tools. */
+  function updateToolbarMode() {
+    if (selectedElId) {
+      toolbarText.classList.add('hidden');
+      toolbarTable.classList.add('hidden');
+      toolbarObject.classList.remove('hidden');
+      return;
+    }
+    toolbarObject.classList.add('hidden');
+    if (inTableCell && page.contains(inTableCell)) {
+      toolbarText.classList.add('hidden');
+      toolbarTable.classList.remove('hidden');
+    } else {
+      toolbarTable.classList.add('hidden');
+      toolbarText.classList.remove('hidden');
+    }
+  }
 
   function getObj(id) { const doc = getCurrentDoc(); return doc && doc.elements.find(e => e.id === id); }
   function nextZ() {
@@ -772,8 +1028,7 @@
   function selectObject(id) {
     selectedElId = id;
     updateSelectionClasses();
-    toolbarText.classList.toggle('hidden', !!id);
-    toolbarObject.classList.toggle('hidden', !id);
+    updateToolbarMode();
   }
   function deselectObject() { selectObject(null); }
 
@@ -1129,26 +1384,115 @@
   });
   document.getElementById('btn-delete-doc').addEventListener('click', () => {
     const doc = getCurrentDoc(); if (!doc) return;
-    doc.trashed = true; doc.updatedAt = Date.now();
+    flushSave(); // capture any just-typed title/content before trashing it
+    doc.trashed = true;
+    doc.trashedAt = Date.now();
+    doc.updatedAt = Date.now();
     saveDocs(docs);
+    updateTrashBadge();
     closeSheet(document.getElementById('sheet-menu'));
     toast('Moved to trash');
     showHome();
   });
 
   /* =========================================================
-     Trash
+     Trash — its own screen. Nothing is restored or deleted for
+     good except the exact item you pick; everything else in the
+     trash is left exactly as it was.
   ========================================================= */
-  document.getElementById('btn-open-trash').addEventListener('click', () => {
+  const screenTrash = document.getElementById('screen-trash');
+  const trashGrid = document.getElementById('trash-grid');
+  const trashEmptyState = document.getElementById('trash-empty-state');
+  const trashCountBadge = document.getElementById('trash-count-badge');
+  let activeTrashId = null;
+
+  function updateTrashBadge() {
+    const count = docs.filter(d => d.trashed).length;
+    trashCountBadge.textContent = count > 99 ? '99+' : String(count);
+    trashCountBadge.classList.toggle('hidden', count === 0);
+  }
+
+  function showTrash() {
+    screenHome.classList.add('hidden');
+    screenEditor.classList.add('hidden');
+    screenTrash.classList.remove('hidden');
+    renderTrash();
+  }
+  function hideTrash() {
+    screenTrash.classList.add('hidden');
+    showHome();
+  }
+  document.getElementById('btn-open-trash').addEventListener('click', showTrash);
+  document.getElementById('btn-trash-back').addEventListener('click', hideTrash);
+
+  function renderTrash() {
+    const trashed = docs.filter(d => d.trashed).sort((a, b) => (b.trashedAt || b.updatedAt) - (a.trashedAt || a.updatedAt));
+    trashGrid.innerHTML = '';
+    trashEmptyState.classList.toggle('hidden', trashed.length > 0);
+    trashed.forEach((d, i) => {
+      const card = document.createElement('button');
+      card.className = 'doc-card';
+      card.style.borderTopColor = CARD_COLORS[i % CARD_COLORS.length];
+      const kindLabel = d.kind === 'note' ? 'Note' : d.kind === 'checklist' ? 'Checklist' : (d.page ? d.page.presetLabel : 'Document');
+      card.innerHTML = `
+        <div class="doc-card-top">
+          <span class="doc-kind">${kindLabel}</span>
+        </div>
+        <h3>${escapeHtml(d.title || 'Untitled')}</h3>
+        <p class="doc-preview">${escapeHtml(plainTextPreview(d.content)) || 'Empty document'}</p>
+        <div class="doc-meta"><span>Trashed ${timeAgo(d.trashedAt || d.updatedAt)}</span><span>${wordCount(d.content)} words</span></div>
+      `;
+      card.addEventListener('click', () => openTrashPreview(d.id));
+      trashGrid.appendChild(card);
+    });
+    updateTrashBadge();
+  }
+
+  function openTrashPreview(id) {
+    const doc = docs.find(d => d.id === id);
+    if (!doc) return;
+    activeTrashId = id;
+    document.getElementById('trash-item-title').textContent = doc.title || 'Untitled';
+    const kindLabel = doc.kind === 'note' ? 'Note' : doc.kind === 'checklist' ? 'Checklist' : (doc.page ? doc.page.presetLabel : 'Document');
+    document.getElementById('trash-item-meta').textContent =
+      `${kindLabel} · Trashed ${timeAgo(doc.trashedAt || doc.updatedAt)} · ${wordCount(doc.content)} words`;
+    const previewEl = document.getElementById('trash-item-preview');
+    const text = plainTextPreview(doc.content);
+    previewEl.textContent = text || 'This document is empty.';
+    openSheet(document.getElementById('sheet-trash-item'));
+  }
+
+  document.getElementById('btn-trash-item-restore').addEventListener('click', () => {
+    const doc = docs.find(d => d.id === activeTrashId);
+    if (!doc) return;
+    doc.trashed = false;
+    delete doc.trashedAt;
+    doc.updatedAt = Date.now();
+    saveDocs(docs);
+    closeSheet(document.getElementById('sheet-trash-item'));
+    toast('Restored to your documents');
+    renderTrash();
+  });
+
+  document.getElementById('btn-trash-item-delete').addEventListener('click', () => {
+    const doc = docs.find(d => d.id === activeTrashId);
+    if (!doc) return;
+    if (!confirm(`Permanently delete "${doc.title || 'Untitled'}"? This can't be undone.`)) return;
+    docs = docs.filter(d => d.id !== activeTrashId);
+    saveDocs(docs);
+    closeSheet(document.getElementById('sheet-trash-item'));
+    toast('Deleted for good');
+    renderTrash();
+  });
+
+  document.getElementById('btn-empty-trash').addEventListener('click', () => {
     const trashed = docs.filter(d => d.trashed);
-    if (!trashed.length) { toast('Trash is empty'); return; }
-    const names = trashed.map(d => `• ${d.title || 'Untitled'}`).join('\n');
-    if (confirm(`Trash (${trashed.length}):\n${names}\n\nRestore all trashed items?`)) {
-      trashed.forEach(d => { d.trashed = false; });
-      saveDocs(docs);
-      renderHome();
-      toast('Restored');
-    }
+    if (!trashed.length) { toast('Trash is already empty'); return; }
+    if (!confirm(`Permanently delete all ${trashed.length} item${trashed.length === 1 ? '' : 's'} in the trash? This can't be undone.`)) return;
+    docs = docs.filter(d => !d.trashed);
+    saveDocs(docs);
+    toast('Trash emptied');
+    renderTrash();
   });
 
   /* =========================================================
@@ -1165,7 +1509,33 @@
       try { active = document.queryCommandState(cmd); } catch (e) {}
       btn.classList.toggle('is-active', active);
     });
+    const headingsBtn = document.querySelector('#toolbar-text .tb-btn[data-open="headings"]');
+    if (headingsBtn) {
+      const currentBlock = getCurrentBlockTag();
+      headingsBtn.classList.toggle('is-active', !!currentBlock && currentBlock !== 'P' && currentBlock !== 'DIV');
+    }
   });
+
+  /* =========================================================
+     Keep the bottom toolbar and bottom sheets above the on-screen
+     keyboard. The viewport meta tag's interactive-widget=resizes-content
+     already fixes this on modern Chrome/Android; the VisualViewport
+     listener below is a fallback for browsers that don't honor that yet
+     (notably iOS Safari), so the formatting toolbar never ends up hidden
+     underneath the keyboard while typing.
+  ========================================================= */
+  if (window.visualViewport) {
+    const vv = window.visualViewport;
+    function adjustForKeyboard() {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      // Ignore tiny fluctuations (browser chrome show/hide) so the
+      // toolbar doesn't jitter; a real keyboard is tens of pixels at least.
+      document.documentElement.style.setProperty('--keyboard-inset', (inset > 40 ? inset : 0) + 'px');
+    }
+    vv.addEventListener('resize', adjustForKeyboard);
+    vv.addEventListener('scroll', adjustForKeyboard);
+    adjustForKeyboard();
+  }
 
   /* =========================================================
      Init

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
 <meta name="theme-color" content="#FFC900" />
 <title>Jotly — Notes &amp; Docs</title>
 <meta name="description" content="Jotly: a fast, full-featured word processor for your phone and tablet, with page presets and Word-style drawing objects." />
@@ -23,7 +23,9 @@
       <span class="brand-mark" aria-hidden="true">J</span>
       <span class="brand-name">Jotly</span>
     </div>
-    <button id="btn-open-trash" class="icon-pill" title="Trash" aria-label="Trash">🗑️</button>
+    <button id="btn-open-trash" class="icon-pill icon-pill-trash" title="Trash" aria-label="Trash">
+      🗑️<span id="trash-count-badge" class="trash-count-badge hidden">0</span>
+    </button>
   </header>
 
   <div class="search-wrap">
@@ -114,6 +116,42 @@
   </div>
 </main>
 
+<!-- ============ TRASH SCREEN ============ -->
+<main id="screen-trash" class="screen screen-trash hidden">
+  <header class="home-topbar">
+    <div class="brand">
+      <button id="btn-trash-back" class="icon-btn" aria-label="Back">←</button>
+      <span class="brand-name">Trash</span>
+    </div>
+    <button id="btn-empty-trash" class="text-action-btn">Empty trash</button>
+  </header>
+
+  <p class="trash-subtitle">Items here stay until you delete them for good. Pick exactly what to bring back — everything else is left untouched.</p>
+
+  <div id="trash-grid" class="doc-grid"></div>
+
+  <div id="trash-empty-state" class="empty-state hidden">
+    <div class="empty-emoji">🗑️</div>
+    <h2>Trash is empty</h2>
+    <p>Anything you delete shows up here first, so nothing's ever gone by accident.</p>
+  </div>
+</main>
+
+<!-- Preview sheet for a single trashed item -->
+<div class="sheet hidden" id="sheet-trash-item">
+  <div class="sheet-backdrop" data-close-sheet></div>
+  <div class="sheet-panel">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title" id="trash-item-title">Untitled</h3>
+    <p class="trash-item-meta" id="trash-item-meta"></p>
+    <div class="trash-item-preview" id="trash-item-preview"></div>
+    <div class="row-options">
+      <button class="row-opt" id="btn-trash-item-restore">↩ Restore this item</button>
+      <button class="row-opt row-opt-danger" id="btn-trash-item-delete">🗑 Delete forever</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ EDITOR SCREEN ============ -->
 <main id="screen-editor" class="screen screen-editor hidden">
   <header class="editor-topbar">
@@ -198,6 +236,23 @@
     <button class="tb-btn" id="btn-obj-delete" title="Delete">🗑</button>
     <span class="tb-sep"></span>
     <button class="tb-btn tb-btn-wide" id="btn-obj-done" title="Done">✓ Done</button>
+  </nav>
+
+  <!-- Bottom toolbar: table row/column tools (shown whenever the cursor is inside a table) -->
+  <nav class="toolbar hidden" id="toolbar-table">
+    <button class="tb-btn tb-btn-wide" id="tbl-row-above" title="Insert row above">+Row ↑</button>
+    <button class="tb-btn tb-btn-wide" id="tbl-row-below" title="Insert row below">+Row ↓</button>
+    <button class="tb-btn" id="tbl-row-up" title="Move row up">↑</button>
+    <button class="tb-btn" id="tbl-row-down" title="Move row down">↓</button>
+    <button class="tb-btn tb-btn-wide" id="tbl-row-del" title="Delete this row">Row ✕</button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn tb-btn-wide" id="tbl-col-left" title="Insert column left">+Col ←</button>
+    <button class="tb-btn tb-btn-wide" id="tbl-col-right" title="Insert column right">+Col →</button>
+    <button class="tb-btn" id="tbl-col-move-left" title="Move column left">←</button>
+    <button class="tb-btn" id="tbl-col-move-right" title="Move column right">→</button>
+    <button class="tb-btn tb-btn-wide" id="tbl-col-del" title="Delete this column">Col ✕</button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn tb-btn-wide" id="tbl-delete" title="Delete whole table">Table ✕</button>
   </nav>
 
   <!-- Bottom sheets for toolbar sub-menus -->
@@ -324,6 +379,18 @@
         <div id="table-picker" class="table-picker"></div>
         <div id="table-picker-label" class="table-picker-label">3 × 3 table</div>
       </div>
+      <div class="table-custom-row">
+        <div class="table-custom-field">
+          <label for="table-custom-rows">Rows</label>
+          <input type="number" id="table-custom-rows" min="1" max="60" value="3" inputmode="numeric" />
+        </div>
+        <div class="table-custom-field">
+          <label for="table-custom-cols">Columns</label>
+          <input type="number" id="table-custom-cols" min="1" max="30" value="3" inputmode="numeric" />
+        </div>
+        <button class="row-opt table-custom-insert" id="btn-table-custom-insert">Insert this size</button>
+      </div>
+      <p class="table-hint">Once inserted, tap into any cell — a row/column toolbar appears at the bottom so you can add, move, or delete rows and columns any time.</p>
     </div>
   </div>
 

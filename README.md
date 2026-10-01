@@ -15,12 +15,14 @@ Documents work like MS Word — flowing rich text, headings, lists, tables — w
 - Rich text editing — bold, italic, underline, strikethrough, headings (H1–H3), block quotes, code blocks
 - 4 font families, 7 sizes, text color + highlight color pickers
 - Bullet, numbered, and tap-to-check checklist lists
-- Tables via a visual row × column picker
-- In-text pictures, links, divider lines, page breaks, alignment, indentation
+- **Tables** — a visual row × column picker for quick sizes, or exact row/column counts up to 60×30; tap into any cell and a row/column toolbar appears at the bottom to insert, move, or delete rows and columns, or delete the whole table, any time after it's placed
+- In-text pictures, links, divider lines, alignment, indentation
 - Undo/redo, find & replace, live word/character count
 - Rulers along the top and left edge of the page (toggle on/off), matching the page's unit
-- **Add page** button on the toolbar — jump straight to a new page whenever you want, mid-sentence or not; the document also grows pages automatically just from writing past the bottom of one, no limit either way
-- Header/footer bands you can turn on or off any time from **Page setup**
+- **Add page** button on the toolbar — jump straight to a new page whenever you want, mid-sentence or not; the document also grows pages automatically just from writing past the bottom of one, no limit either way. Manual page breaks render as a real gap between pages, not just a line
+- Header/footer bands you can turn on or off any time from **Page setup** — the footer is pinned to the bottom of the page itself (via flexbox), so it's in the right place even with just one line of content
+- Formatting toggles — bold, italic, underline, strikethrough, headings, quote — correctly turn back **off** when you tap an already-active one a second time
+- The bottom toolbar and bottom sheets stay above the on-screen keyboard instead of getting hidden underneath it
 
 ### Floating design objects (the "little bit of InDesign")
 From the **Insert** sheet, add objects that float freely on top of the page — independent of the text flow, exactly like Word's own Insert → Shapes / Text Box, just with more style control:
@@ -34,7 +36,8 @@ From the **Insert** sheet, add objects that float freely on top of the page — 
 - Optional link on any object
 
 ### Everywhere
-- Searchable home screen with document cards, filter chips (Documents / Quick notes / Starred), starring, trash/restore
+- Searchable home screen with document cards, filter chips (Documents / Quick notes / Starred), starring
+- A proper **Trash screen** (its own button, with an item-count badge) — preview any trashed item's content before deciding, restore exactly the one you pick while everything else stays put, or delete a single item (or empty the whole trash) permanently
 - Autosave to on-device storage as you type — no account needed
 - Installable PWA — "Add to Home Screen" on iOS/Android, works fully offline after first load
 - Export: Word (`.docx`, built from scratch — no library), PDF at the page's exact size (via print), flattened PNG, and plain text (`.txt`)

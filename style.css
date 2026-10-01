@@ -91,7 +91,39 @@ input, select, textarea { font-family: inherit; }
   background: var(--surface);
   box-shadow: var(--shadow-card);
   font-size: 17px;
+  position: relative;
 }
+.icon-pill-trash { overflow: visible; }
+.trash-count-badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: 999px; background: var(--red);
+  color: #fff; font-size: 10.5px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-body); line-height: 1;
+}
+.text-action-btn {
+  border: none; background: none; color: var(--violet);
+  font-weight: 700; font-size: 14px; padding: 8px 4px;
+}
+.trash-subtitle {
+  padding: 0 20px 4px; margin: 4px 0 0; color: var(--muted);
+  font-size: 13px; line-height: 1.5;
+}
+.row-opt-danger { color: var(--red); border-color: var(--red-soft); }
+.row-opt-danger:active { background: var(--red-soft); }
+.trash-item-meta { color: var(--muted); font-size: 13px; margin: -6px 0 12px; }
+.trash-item-preview {
+  background: var(--bg); border-radius: var(--radius-md);
+  padding: 14px; margin-bottom: 14px; max-height: 180px; overflow-y: auto;
+  font-size: 14px; line-height: 1.5; color: var(--ink);
+}
+.trash-restore-btn, .trash-delete-btn {
+  border: none; border-radius: var(--radius-pill);
+  width: 34px; height: 34px; font-size: 14px;
+  background: var(--surface); box-shadow: var(--shadow-card);
+}
+.trash-delete-btn { color: var(--red); }
 
 .search-wrap { padding: 10px 20px 4px; }
 .search-input {
@@ -233,6 +265,7 @@ input, select, textarea { font-family: inherit; }
 .sheet {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: flex-end;
+  padding-bottom: var(--keyboard-inset, 0px);
 }
 .sheet-backdrop {
   position: absolute; inset: 0;
@@ -303,6 +336,12 @@ input, select, textarea { font-family: inherit; }
   padding: 14px 10px;
   font-weight: 600;
   font-family: var(--font-body);
+  position: relative;
+}
+.style-opt.is-active { border-color: var(--violet); background: var(--violet-soft); }
+.style-opt.is-active::after {
+  content: '✓'; position: absolute; top: 6px; right: 8px;
+  color: var(--violet); font-size: 13px; font-weight: 800;
 }
 .style-h1 { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
 .style-h2 { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
@@ -352,6 +391,19 @@ input, select, textarea { font-family: inherit; }
   border-color: var(--yellow);
 }
 .table-picker-label { text-align: center; color: var(--muted); font-size: 13.5px; font-weight: 600; }
+.table-custom-row {
+  display: flex; align-items: flex-end; gap: 10px;
+  padding: 14px 0 6px; border-top: 1px solid var(--line); margin-top: 8px;
+  flex-wrap: wrap;
+}
+.table-custom-field { display: flex; flex-direction: column; gap: 4px; width: 84px; }
+.table-custom-field label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.table-custom-field input {
+  border: 1.5px solid var(--line); border-radius: var(--radius-md);
+  padding: 10px 10px; font-size: 15px; background: var(--bg); width: 100%;
+}
+.table-custom-insert { flex: 1 1 140px; margin: 0; }
+.table-hint { font-size: 12.5px; color: var(--muted); line-height: 1.45; padding: 10px 2px 4px; }
 
 .text-input {
   width: 100%;
@@ -475,23 +527,19 @@ input, select, textarea { font-family: inherit; }
 .editor-page td, .print-text td, .print-flow td { border: 1px solid var(--line); padding: 8px; min-width: 40px; }
 .editor-page hr, .print-text hr, .print-flow hr { border: none; border-top: 2px dashed var(--line); margin: 1.2em 0; }
 .editor-page .page-break {
-  border-top: 2px dashed var(--violet);
-  margin: 2.4em -22px 2em;
-  padding-top: 14px;
   position: relative;
+  margin: 2.2em -22px;
+  padding: 30px 22px;
+  background: var(--bg);
+  box-shadow: inset 0 8px 10px -8px rgba(0,0,0,0.18), inset 0 -8px 10px -8px rgba(0,0,0,0.18);
   user-select: none;
-}
-.editor-page .page-break::before {
-  content: '';
-  position: absolute; left: 0; right: 0; top: -14px; height: 14px;
-  background: linear-gradient(to bottom, rgba(20,17,13,0.06), transparent);
 }
 .editor-page .page-break::after {
   content: '◆ New page ◆';
-  position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   background: var(--violet); color: #fff;
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em;
-  padding: 3px 12px; border-radius: 999px; white-space: nowrap;
+  padding: 4px 14px; border-radius: 999px; white-space: nowrap;
 }
 .checklist-item { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; list-style: none; }
 .checklist-item input { margin-top: 5px; width: 17px; height: 17px; accent-color: var(--mint); }
@@ -501,7 +549,7 @@ ul.checklist { padding-left: 0; }
 .toolbar {
   position: fixed;
   left: 0; right: 0;
-  bottom: 0;
+  bottom: var(--keyboard-inset, 0px);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -624,7 +672,15 @@ ul.checklist { padding-left: 0; }
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
 }
-.editor-frame.is-page { box-shadow: 0 2px 24px rgba(0,0,0,0.2); }
+.editor-frame.is-page {
+  box-shadow: 0 2px 24px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+}
+/* With is-page active, the body text stretches to fill the page, which is
+   what pins the footer band to the bottom of page one instead of it
+   floating right under the first line you type. */
+.editor-frame.is-page .editor-page { flex: 1 0 auto; }
 
 .editor-band {
   position: relative;
